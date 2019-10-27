@@ -102,15 +102,15 @@ export class Projection<S, A> {
     return lens.asProjection()
   }
 
-  public static map = <S, A, B>(sa: Projection<S, A>, f: (a: A) => B): Projection<S, B> => {
-    return Projection.mapN([sa], f)
+  public static map<S, A, B>(sa: Projection<S, A>, f: (a: A) => B): Projection<S, B> {
+    return Projection.mapN<S, A, B, B>([sa], f)
   }
 
-  public static map2 = <S, A, B, R>(
+  public static map2<S, A, B, R>(
     ss: [Projection<S, A>, Projection<S, B>],
     f: (a: A, b: B) => R
-  ): Projection<S, R> => {
-    return Projection.mapN(ss, f)
+  ): Projection<S, R> {
+    return Projection.mapN<S, A, B, R>(ss, f)
   }
 
   public static mapN<S, A, B, R>(ss: [Projection<S, A>], f: (a: A) => R): Projection<S, R>
