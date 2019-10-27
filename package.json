@@ -5,14 +5,17 @@
   "main": "index.html",
   "scripts": {
     "start": "parcel index.html --open",
-    "build": "parcel build index.html"
+    "build": "parcel build index.html",
+    "check-updates": "ncu"
   },
   "dependencies": {
-    "fp-ts": "2.1.0",
-    "monocle-ts": "2.0.0"
+    "fp-ts": "^2.1.1",
+    "monocle-ts": "^2.0.0"
   },
   "devDependencies": {
-    "parcel-bundler": "^1.6.1"
+    "npm-check-updates": "^3.1.25",
+    "parcel-bundler": "^1.12.4",
+    "typescript": "^3.6.4"
   },
   "keywords": []
 }

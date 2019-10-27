@@ -1,4 +1,5 @@
 import { Lens } from "monocle-ts";
+import { flow } from 'fp-ts/lib/function'
 
 declare module "monocle-ts" {
   interface Lens<S, A> {
@@ -89,7 +90,7 @@ export class Projection<S, A> {
   ): Projection<S, R>;
   combine(sb: any, st: any) {
     return new Projection((s: S) => {
-      const args = Array.isArray(sb) ? sb.map(sbv => sbv.get(s)) : sb.get(s);
+      const args = Array.isArray(sb) ? sb.map(sbv => sbv.get(s)) : [sb.get(s)];
       return st(this.lens.get(s), ...args);
     });
   }
@@ -112,6 +113,10 @@ export class Projection<S, A> {
       ? sb.map(sbv => sbv.asProjection())
       : sb.asProjection();
     return this.combine(args, st);
+  }
+
+  map<B>(f: (a: A) => B){
+    return new Projection(flow(this.lens.get, f))
   }
 
   get(s: S) {
