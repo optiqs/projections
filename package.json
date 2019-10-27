@@ -1,26 +1,59 @@
 {
   "name": "projections",
+  "description": "Projection library for optics",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.html",
+  "main": "bundle.cjs.js",
+  "module": "bundle.esm.js",
+  "types": "index.d.ts",
+  "sideEffects": false,
   "scripts": {
-    "start": "parcel index.html --open",
-    "build": "parcel build index.html",
+    "build": "rimraf lib/ && tsc && babel ./src --out-dir lib --extensions '.ts' --ignore '**/*.test.ts'",
     "test": "jest",
+    "lint": "eslint src/**",
+    "lint-fix": "eslint src/** --fix",
+    "pre-commit": "lint-staged --quiet",
+    "prettier-check": "prettier --config .prettierrc --check src/**",
+    "prettier-write": "prettier --config .prettierrc --write src/**",
+    "prepublishOnly": "npm run lint && npm run build",
     "check-updates": "ncu"
   },
-  "dependencies": {
+  "peerDependencies": {
     "fp-ts": "^2.1.1",
     "monocle-ts": "^2.0.0"
   },
   "devDependencies": {
+    "@babel/cli": "^7.6.4",
+    "@babel/core": "^7.6.4",
     "@babel/preset-env": "^7.6.3",
     "@babel/preset-typescript": "^7.6.0",
     "@types/jest": "^24.0.20",
+    "@typescript-eslint/eslint-plugin": "^2.5.0",
+    "@typescript-eslint/parser": "^2.5.0",
+    "eslint": "^6.6.0",
+    "eslint-config-prettier": "^6.5.0",
+    "fp-ts": "^2.1.1",
+    "monocle-ts": "^2.0.0",
+    "husky": "^3.0.9",
     "jest": "^24.9.0",
+    "lint-staged": "^9.4.2",
     "npm-check-updates": "^3.1.25",
-    "parcel-bundler": "^1.12.4",
+    "prettier": "^1.18.2",
+    "rimraf": "^3.0.0",
     "typescript": "^3.6.4"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "npm run pre-commit"
+    }
+  },
+  "lint-staged": {
+    "*.{ts}": [
+      "npm run prettier-write",
+      "git add"
+    ],
+    "*src/**/*.{ts}": [
+      "npm run lint"
+    ]
   },
   "keywords": []
 }
