@@ -49,57 +49,99 @@ export class Projection<S, A> {
     return this.compose(sb.asProjection())
   }
 
-  public combine<B, R>(sb: Projection<S, B>, st: (a: A, b: B) => R): Projection<S, R>
-  public combine<B, C, R>(
-    ss: [Projection<S, B>, Projection<S, C>],
-    st: (a: A, b: B, c: C) => R
-  ): Projection<S, R>
-  public combine<B, C, D, R>(
-    ss: [Projection<S, B>, Projection<S, C>, Projection<S, D>],
-    st: (a: A, b: B, c: C, d: D) => R
-  ): Projection<S, R>
-  public combine<B, C, D, E, R>(
-    ss: [Projection<S, B>, Projection<S, C>, Projection<S, D>, Projection<S, E>],
-    st: (a: A, b: B, c: C, d: D, e: E) => R
-  ): Projection<S, R>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public combine<R>(sb: any, st: any): Projection<S, R> {
-    return new Projection((s: S) => {
-      const args = Array.isArray(sb) ? sb.map(sbv => sbv.get(s)) : [sb.get(s)]
-      return st(this.lens.get(s), ...args)
-    })
-  }
-
-  public combineLens<B, R>(sb: Lens<S, B>, st: (a: A, b: B) => R): Projection<S, R>
+  public combineLens<B, R>(sb: Lens<S, B>, f: (a: A, b: B) => R): Projection<S, R>
   public combineLens<B, C, R>(
     ss: [Lens<S, B>, Lens<S, C>],
-    st: (a: A, b: B, c: C) => R
+    f: (a: A, b: B, c: C) => R
   ): Projection<S, R>
   public combineLens<B, C, D, R>(
     ss: [Lens<S, B>, Lens<S, C>, Lens<S, D>],
-    st: (a: A, b: B, c: C, d: D) => R
+    f: (a: A, b: B, c: C, d: D) => R
   ): Projection<S, R>
   public combineLens<B, C, D, E, R>(
     ss: [Lens<S, B>, Lens<S, C>, Lens<S, D>, Lens<S, E>],
-    st: (a: A, b: B, c: C, d: D, e: E) => R
+    f: (a: A, b: B, c: C, d: D, e: E) => R
   ): Projection<S, R>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public combineLens<R>(sb: any, st: any): Projection<S, R> {
-    const args = Array.isArray(sb) ? sb.map(sbv => sbv.asProjection()) : sb.asProjection()
-    return this.combine(args, st)
+  public combineLens<R>(sb: any, f: any): Projection<S, R> {
+    const args = Array.isArray(sb) ? sb.map(Projection.fromLens) : sb.asProjection()
+    return this.combine(args, f)
+  }
+
+  public combine<B, R>(sb: Projection<S, B>, f: (a: A, b: B) => R): Projection<S, R>
+  public combine<B, C, R>(
+    ss: [Projection<S, B>, Projection<S, C>],
+    f: (a: A, b: B, c: C) => R
+  ): Projection<S, R>
+  public combine<B, C, D, R>(
+    ss: [Projection<S, B>, Projection<S, C>, Projection<S, D>],
+    f: (a: A, b: B, c: C, d: D) => R
+  ): Projection<S, R>
+  public combine<B, C, D, E, R>(
+    ss: [Projection<S, B>, Projection<S, C>, Projection<S, D>, Projection<S, E>],
+    f: (a: A, b: B, c: C, d: D, e: E) => R
+  ): Projection<S, R>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public combine<R>(ss: any, f: any): Projection<S, R> {
+    return Projection.mapN([this, ss], f)
   }
 
   public map<B>(f: (a: A) => B): Projection<S, B> {
-    return new Projection(
+    return Projection.map(this, f)
+  }
+
+  public get(s: S): A {
+    return Projection.get(this, s)
+  }
+
+  public static of<S, A>(getter: (s: S) => A): Projection<S, A> {
+    return new Projection(getter)
+  }
+
+  public static fromLens<S, A>(lens: Lens<S, A>) {
+    return lens.asProjection()
+  }
+
+  public static map = <S, A, B>(sa: Projection<S, A>, f: (a: A) => B): Projection<S, B> => {
+    return Projection.mapN([sa], f)
+  }
+
+  public static map2 = <S, A, B, R>(
+    ss: [Projection<S, A>, Projection<S, B>],
+    f: (a: A, b: B) => R
+  ): Projection<S, R> => {
+    return Projection.mapN(ss, f)
+  }
+
+  public static mapN<S, A, B, R>(ss: [Projection<S, A>], f: (a: A) => R): Projection<S, R>
+  public static mapN<S, A, B, R>(
+    ss: [Projection<S, A>, Projection<S, B>],
+    f: (a: A, b: B) => R
+  ): Projection<S, R>
+  public static mapN<S, A, B, C, R>(
+    ss: [Projection<S, A>, Projection<S, B>, Projection<S, C>],
+    f: (a: A, b: B, c: C) => R
+  ): Projection<S, R>
+  public static mapN<S, A, B, C, D, R>(
+    ss: [Projection<S, A>, Projection<S, B>, Projection<S, C>, Projection<S, D>],
+    f: (a: A, b: B, c: C, d: D) => R
+  ): Projection<S, R>
+  public static mapN<S, A, B, C, D, E, R>(
+    ss: [Projection<S, A>, Projection<S, B>, Projection<S, C>, Projection<S, D>, Projection<S, E>],
+    f: (a: A, b: B, c: C, d: D, e: E) => R
+  ): Projection<S, R>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public static mapN<S, R>(ss: any, f: any): Projection<S, R> {
+    return Projection.of(
       flow(
-        this.lens.get,
-        f
+        s => ss.map((p: Projection<S, unknown>) => p.get(s)),
+        p => f(...p)
       )
     )
   }
 
-  public get(s: S): A {
-    return this.lens.get(s)
+  public static get<S, A>(p: Projection<S, A>, s: S): A {
+    return p.lens.get(s)
   }
 
   public static fromProp<S>() {
