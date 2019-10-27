@@ -11,10 +11,10 @@
     "test": "jest",
     "lint": "eslint src/**",
     "lint-fix": "eslint src/** --fix",
-    "pre-commit": "lint-staged --quiet",
+    "pre-commit": "lint-staged --quiet && npm run build",
+    "prepublishOnly": "npm run lint-fix && npm run prettier-write && npm run build",
     "prettier-check": "prettier --config .prettierrc --check src/**",
     "prettier-write": "prettier --config .prettierrc --write src/**",
-    "prepublishOnly": "npm run lint && npm run build",
     "check-updates": "ncu"
   },
   "peerDependencies": {
