@@ -1,5 +1,5 @@
 import { Lens } from "monocle-ts";
-import { flow } from 'fp-ts/lib/function'
+import { flow } from "fp-ts/lib/function";
 
 declare module "monocle-ts" {
   interface Lens<S, A> {
@@ -38,12 +38,14 @@ export interface ProjectionFromPath<S> {
 export class Projection<S, A> {
   private lens: Lens<S, A>;
 
-  static fromProp<S, P extends keyof S>(prop: P) {
-    return Lens.fromProp<S>()(prop).asProjection();
+  static fromProp<S>() {
+    return <P extends keyof S>(prop: P) =>
+      Lens.fromProp<S>()(prop).asProjection();
   }
 
-  static fromProps<S, P extends keyof S>(props: P[]) {
-    return Lens.fromProps<S>()(props).asProjection();
+  static fromProps<S>() {
+    return <P extends keyof S>(props: P[]) =>
+      Lens.fromProps<S>()(props).asProjection();
   }
 
   static fromPath<S>() {
@@ -51,11 +53,9 @@ export class Projection<S, A> {
       Lens.fromPath<S>()(path).asProjection()) as ProjectionFromPath<S>;
   }
 
-  static fromNullableProp<S, A extends S[K], K extends keyof S>(
-    k: K,
-    defaultValue: A
-  ) {
-    return Lens.fromNullableProp<S>()(k, defaultValue).asProjection();
+  static fromNullableProp<S>() {
+    return <A extends S[K], K extends keyof S>(k: K, defaultValue: A) =>
+      Lens.fromNullableProp<S>()(k, defaultValue).asProjection();
   }
 
   constructor(getter: (s: S) => A) {
@@ -115,8 +115,13 @@ export class Projection<S, A> {
     return this.combine(args, st);
   }
 
-  map<B>(f: (a: A) => B){
-    return new Projection(flow(this.lens.get, f))
+  map<B>(f: (a: A) => B) {
+    return new Projection(
+      flow(
+        this.lens.get,
+        f
+      )
+    );
   }
 
   get(s: S) {
