@@ -2,9 +2,9 @@
   "name": "projections",
   "description": "Projection library for optics",
   "version": "1.0.0",
-  "main": "bundle.cjs.js",
-  "module": "bundle.esm.js",
-  "types": "index.d.ts",
+  "main": "lib/index.js",
+  "module": "lib/index.js",
+  "types": "lib/index.d.ts",
   "sideEffects": false,
   "scripts": {
     "build": "rimraf lib/ && tsc && babel ./src --out-dir lib --extensions '.ts' --ignore '**/*.test.ts'",
