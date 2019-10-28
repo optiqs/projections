@@ -82,8 +82,9 @@ export class Projection<S, A> {
     f: (a: A, b: B, c: C, d: D, e: E) => R
   ): Projection<S, R>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public combine<R>(ss: any, f: any): Projection<S, R> {
-    return Projection.mapN([this, ss], f)
+  public combine<A, B, C, D, E, R>(ss: any, f: any): Projection<S, R> {
+    const ps = Array.isArray(ss) ? [this, ...ss] : [this, ss]
+    return Projection.mapN(ps as [Projection<S, unknown>], f)
   }
 
   public map<B>(f: (a: A) => B): Projection<S, B> {
