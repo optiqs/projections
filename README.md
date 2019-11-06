@@ -8,7 +8,7 @@ While Lenses solve problems regarding basic CRUD operations on data objects, Pro
 The main struggle that this project aspires to resolve is the verbosity required by Redux. Redux is simple and yet a robust solution for state management. When reducers are just anemic  CRUD operations, it minimizes data indirection and increases maintainability of the app.
 ![A summarized version of the Redux data flow](docs/redux.png)
 
-Lenses is viable alternative to catalize the Redux by removing verbosity. solve for most of this problem, allowing us to not have to write more than just one reducer([Lenses Reducer Module](https://example.com)). 
+Lenses is viable alternative to catalize the Redux by removing verbosity, allowing the write operations to the state to handled by a single reducer([Lenses Reducer Module](https://example.com)). 
 
 Furthermore, Lenses play a fair share part in the selectors space. The same lenses created for modification of state can be used to read data(`get`). However, lenses may not suffice all requirements related to the read operations. 
 
