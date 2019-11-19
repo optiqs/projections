@@ -1,4 +1,4 @@
-# Projectors
+# Projections
 Projections is a thin abstraction on top of Lenses, inspired by reselect, designed to solve a set of problems regarding the manipulation of large and nested objects such as Redux stores.
 While Lenses solve problems regarding basic CRUD operations on data objects, Projections are readonly views into the data, allowing for tranformation(`map`) and merging(`combine`) of projections and lenses.
 
