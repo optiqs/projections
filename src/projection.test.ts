@@ -146,7 +146,7 @@ test('Projection.of: constructs a projection for a getter', () => {
 
 test('Projection.fromLens: constructs a projection from a lens', () => {
   type S = {a: string}
-  const lens = new Lens((s: S) => s.a, (a: string) => (s: S) => ({a}))
+  const lens = new Lens((s: S) => s.a, (a: string) => () => ({a}))
   const p = Projection.fromLens(lens)
   expect(p instanceof Projection).toBeTruthy()
 })
