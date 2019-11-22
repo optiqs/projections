@@ -1,5 +1,5 @@
 {
-  "name": "@myopia/projections",
+  "name": "@optiqs/projections",
   "description": "Projection library for optics",
   "version": "1.0.0",
   "main": "lib/index.js",
