@@ -1,11 +1,14 @@
 {
   "name": "@optiqs/projections",
   "description": "Projection library for optics",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "main": "lib/index.js",
   "module": "lib/index.js",
   "types": "lib/index.d.ts",
-  "sideEffects": true,
+  "sideEffects": [
+    "lib/projection.js",
+    "lib/index.js"
+  ],
   "scripts": {
     "build": "rimraf lib/ && tsc && babel ./src --out-dir lib --extensions '.ts' --ignore '**/*.test.ts'",
     "test": "jest",
