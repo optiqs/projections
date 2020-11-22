@@ -39,6 +39,12 @@ export class Projection<S, A> {
     const id: (_: S) => S = s => s
     const setter: () => typeof id = () => id
     this.lens = new Lens(getter, setter)
+    this.compose = this.compose.bind(this)
+    this.composeLens = this.composeLens.bind(this)
+    this.combineLens = this.combineLens.bind(this)
+    this.combine = this.combine.bind(this)
+    this.map = this.map.bind(this)
+    this.get = this.get.bind(this)
   }
 
   public compose<B>(sb: Projection<A, B>): Projection<S, B> {
@@ -164,6 +170,6 @@ export class Projection<S, A> {
   }
 }
 
-Lens.prototype.asProjection = function() {
+Lens.prototype.asProjection = function () {
   return new Projection(this.get)
 }
