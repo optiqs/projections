@@ -154,3 +154,9 @@ test('Projection.fromGetter: constructs a projection from a lens', () => {
   const p = Projection.fromGetter(getter)
   expect(p instanceof Projection).toBeTruthy()
 })
+
+test('Projection.asGetter: returns a Getter instance', () => {
+  type S = {a: string}
+  const p = Projection.fromProp<S>()('a').asGetter()
+  expect(p instanceof Getter).toBeTruthy()
+})
