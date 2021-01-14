@@ -163,20 +163,25 @@ export class Projection<S, A> {
   }
 
   public static fromProp<S>() {
-    return <P extends keyof S>(prop: P) => Lens.fromProp<S>()(prop).asProjection()
+    return <P extends keyof S>(prop: P): Projection<S, S[P]> =>
+      Lens.fromProp<S>()(prop).asProjection()
   }
 
   public static fromProps<S>() {
-    return <P extends keyof S>(props: P[]) => Lens.fromProps<S>()(props).asProjection()
+    return <P extends keyof S>(props: P[]): Projection<S, {[K in P]: S[K]}> =>
+      Lens.fromProps<S>()(props).asProjection()
   }
 
-  public static fromPath<S>() {
+  public static fromPath<S>(): ProjectionFromPath<S> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return ((path: any) => Lens.fromPath<S>()(path).asProjection()) as ProjectionFromPath<S>
   }
 
   public static fromNullableProp<S>() {
-    return <A extends S[K], K extends keyof S>(k: K, defaultValue: A) =>
+    return <A extends S[K], K extends keyof S>(
+      k: K,
+      defaultValue: A
+    ): Projection<S, NonNullable<S[K]>> =>
       Lens.fromNullableProp<S>()(k, defaultValue).asProjection()
   }
 }
