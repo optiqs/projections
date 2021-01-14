@@ -38,8 +38,8 @@ export interface ProjectionFromPath<S> {
 export class Projection<S, A> {
   private readonly getter: Getter<S, A>
 
-  constructor(getter: Getter<S, A>)
   constructor(getter: (s: S) => A)
+  constructor(getter: Getter<S, A>)
   constructor(getter: ((s: S) => A) | Getter<S, A>) {
     this.getter = getter instanceof Getter ? getter : new Getter(getter)
     this.compose = this.compose.bind(this)
@@ -48,6 +48,7 @@ export class Projection<S, A> {
     this.combine = this.combine.bind(this)
     this.map = this.map.bind(this)
     this.get = this.get.bind(this)
+    this.asGetter = this.asGetter.bind(this)
   }
 
   public asGetter(): Getter<S, A> {
@@ -75,7 +76,7 @@ export class Projection<S, A> {
     ss: [Lens<S, B>, Lens<S, C>, Lens<S, D>, Lens<S, E>],
     f: (a: A, b: B, c: C, d: D, e: E) => R
   ): Projection<S, R>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types
   public combineLens<R>(sb: any, f: any): Projection<S, R> {
     const args = Array.isArray(sb) ? sb.map(Projection.fromLens) : sb.asProjection()
     return this.combine(args, f)
@@ -94,8 +95,8 @@ export class Projection<S, A> {
     ss: [Projection<S, B>, Projection<S, C>, Projection<S, D>, Projection<S, E>],
     f: (a: A, b: B, c: C, d: D, e: E) => R
   ): Projection<S, R>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public combine<A, B, C, D, E, R>(ss: any, f: any): Projection<S, R> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types
+  public combine<R>(ss: any, f: any): Projection<S, R> {
     const ps = Array.isArray(ss) ? [this, ...ss] : [this, ss]
     return Projection.mapN(ps as [Projection<S, unknown>], f)
   }
@@ -121,7 +122,7 @@ export class Projection<S, A> {
   }
 
   public static map<S, A, B>(sa: Projection<S, A>, f: (a: A) => B): Projection<S, B> {
-    return Projection.mapN<S, A, B, B>([sa], f)
+    return Projection.mapN<S, A, B>([sa], f)
   }
 
   public static map2<S, A, B, R>(
@@ -131,7 +132,7 @@ export class Projection<S, A> {
     return Projection.mapN<S, A, B, R>(ss, f)
   }
 
-  public static mapN<S, A, B, R>(ss: [Projection<S, A>], f: (a: A) => R): Projection<S, R>
+  public static mapN<S, A, R>(ss: [Projection<S, A>], f: (a: A) => R): Projection<S, R>
   public static mapN<S, A, B, R>(
     ss: [Projection<S, A>, Projection<S, B>],
     f: (a: A, b: B) => R
@@ -148,8 +149,10 @@ export class Projection<S, A> {
     ss: [Projection<S, A>, Projection<S, B>, Projection<S, C>, Projection<S, D>, Projection<S, E>],
     f: (a: A, b: B, c: C, d: D, e: E) => R
   ): Projection<S, R>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public static mapN<S, R>(ss: any, f: any): Projection<S, R> {
+  public static mapN<S, R>(
+    ss: readonly Projection<S, unknown>[],
+    f: (...args: unknown[]) => R
+  ): Projection<S, R> {
     return Projection.of(
       flow(
         s => ss.map((p: Projection<S, unknown>) => p.get(s)),
@@ -173,8 +176,7 @@ export class Projection<S, A> {
   }
 
   public static fromPath<S>(): ProjectionFromPath<S> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return ((path: any) => Lens.fromPath<S>()(path).asProjection()) as ProjectionFromPath<S>
+    return ((path: never) => Lens.fromPath<S>()(path).asProjection()) as ProjectionFromPath<S>
   }
 
   public static fromNullableProp<S>() {
