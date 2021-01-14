@@ -1,8 +1,11 @@
 import {flow} from 'fp-ts/lib/function'
-import {Lens} from 'monocle-ts'
+import {Lens, Getter} from 'monocle-ts'
 
 declare module 'monocle-ts' {
   interface Lens<S, A> {
+    asProjection(): Projection<S, A>
+  }
+  interface Getter<S, A> {
     asProjection(): Projection<S, A>
   }
 }
@@ -33,12 +36,12 @@ export interface ProjectionFromPath<S> {
 }
 
 export class Projection<S, A> {
-  private readonly lens: Lens<S, A>
+  private readonly getter: Getter<S, A>
 
-  constructor(getter: (s: S) => A) {
-    const id: (_: S) => S = s => s
-    const setter: () => typeof id = () => id
-    this.lens = new Lens(getter, setter)
+  constructor(getter: Getter<S, A>)
+  constructor(getter: (s: S) => A)
+  constructor(getter: ((s: S) => A) | Getter<S, A>) {
+    this.getter = getter instanceof Getter ? getter : new Getter(getter)
     this.compose = this.compose.bind(this)
     this.composeLens = this.composeLens.bind(this)
     this.combineLens = this.combineLens.bind(this)
@@ -47,8 +50,12 @@ export class Projection<S, A> {
     this.get = this.get.bind(this)
   }
 
+  public asGetter(): Getter<S, A> {
+    return this.getter
+  }
+
   public compose<B>(sb: Projection<A, B>): Projection<S, B> {
-    return this.lens.compose(sb.lens).asProjection()
+    return this.getter.compose(sb.getter).asProjection()
   }
 
   public composeLens<B>(sb: Lens<A, B>): Projection<S, B> {
@@ -105,8 +112,12 @@ export class Projection<S, A> {
     return new Projection(getter)
   }
 
-  public static fromLens<S, A>(lens: Lens<S, A>) {
-    return lens.asProjection()
+  public static fromLens<S, A>(lens: Lens<S, A>): Projection<S, A> {
+    return new Projection(lens.asGetter())
+  }
+
+  public static fromGetter<S, A>(getter: Getter<S, A>): Projection<S, A> {
+    return new Projection(getter)
   }
 
   public static map<S, A, B>(sa: Projection<S, A>, f: (a: A) => B): Projection<S, B> {
@@ -148,7 +159,7 @@ export class Projection<S, A> {
   }
 
   public static get<S, A>(p: Projection<S, A>, s: S): A {
-    return p.lens.get(s)
+    return p.getter.get(s)
   }
 
   public static fromProp<S>() {
@@ -172,4 +183,8 @@ export class Projection<S, A> {
 
 Lens.prototype.asProjection = function () {
   return new Projection(this.get)
+}
+
+Getter.prototype.asProjection = function () {
+  return new Projection(this)
 }
