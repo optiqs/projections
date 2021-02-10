@@ -1,5 +1,5 @@
 import {Projection} from './projection'
-import {Lens} from 'monocle-ts'
+import {Lens, Getter} from 'monocle-ts'
 
 test('Projection.fromProp: drills down to an objects prop', () => {
   type S = {a: string}
@@ -107,10 +107,7 @@ test('Projection.map: obeys composition law', () => {
   const projection = Projection.fromProp<S>()('a')
   const f = (v: string): string => `f(${v})`
   const g = (v: string): string => `g(${v})`
-  const split = projection
-    .map(f)
-    .map(g)
-    .get(s)
+  const split = projection.map(f).map(g).get(s)
   const composed = projection.map(v => g(f(v))).get(s)
   expect(split).toEqual(composed)
 })
@@ -130,10 +127,7 @@ test('Projection.get: returns the correct value', () => {
   const p2 = Projection.fromProp<A>()('b')
   const p3 = Projection.fromProp<B>()('value')
   const expected2 = s2.a.b.value
-  const actual2 = p1
-    .compose(p2)
-    .compose(p3)
-    .get(s2)
+  const actual2 = p1.compose(p2).compose(p3).get(s2)
   expect(actual2).toEqual(expected2)
 })
 
@@ -146,7 +140,23 @@ test('Projection.of: constructs a projection for a getter', () => {
 
 test('Projection.fromLens: constructs a projection from a lens', () => {
   type S = {a: string}
-  const lens = new Lens((s: S) => s.a, (a: string) => () => ({a}))
+  const lens = new Lens(
+    (s: S) => s.a,
+    (a: string) => () => ({a})
+  )
   const p = Projection.fromLens(lens)
   expect(p instanceof Projection).toBeTruthy()
+})
+
+test('Projection.fromGetter: constructs a projection from a lens', () => {
+  type S = {a: string}
+  const getter = new Getter((s: S) => s.a)
+  const p = Projection.fromGetter(getter)
+  expect(p instanceof Projection).toBeTruthy()
+})
+
+test('Projection.asGetter: returns a Getter instance', () => {
+  type S = {a: string}
+  const p = Projection.fromProp<S>()('a').asGetter()
+  expect(p instanceof Getter).toBeTruthy()
 })

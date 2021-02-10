@@ -1,8 +1,11 @@
-import {flow} from 'fp-ts/lib/function'
-import {Lens} from 'monocle-ts'
+import {flow, pipe} from 'fp-ts/lib/function'
+import {Lens, Getter} from 'monocle-ts'
 
 declare module 'monocle-ts' {
   interface Lens<S, A> {
+    asProjection(): Projection<S, A>
+  }
+  interface Getter<S, A> {
     asProjection(): Projection<S, A>
   }
 }
@@ -33,26 +36,36 @@ export interface ProjectionFromPath<S> {
 }
 
 export class Projection<S, A> {
-  private readonly lens: Lens<S, A>
+  private readonly getter: Getter<S, A>
 
-  constructor(getter: (s: S) => A) {
-    const id: (_: S) => S = s => s
-    const setter: () => typeof id = () => id
-    this.lens = new Lens(getter, setter)
+  private readonly composeGetter: <B>(ab: Getter<A, B>) => Getter<S, B>
+
+  constructor(getter: (s: S) => A)
+  constructor(getter: Getter<S, A>)
+  constructor(getter: ((s: S) => A) | Getter<S, A>)
+  constructor(getter: ((s: S) => A) | Getter<S, A>) {
+    this.getter = getter instanceof Getter ? getter : new Getter(getter)
+    this.composeGetter = this.getter.compose.bind(this.getter)
+
     this.compose = this.compose.bind(this)
     this.composeLens = this.composeLens.bind(this)
     this.combineLens = this.combineLens.bind(this)
     this.combine = this.combine.bind(this)
     this.map = this.map.bind(this)
     this.get = this.get.bind(this)
+    this.asGetter = this.asGetter.bind(this)
+  }
+
+  public asGetter(): Getter<S, A> {
+    return this.getter
   }
 
   public compose<B>(sb: Projection<A, B>): Projection<S, B> {
-    return this.lens.compose(sb.lens).asProjection()
+    return pipe(sb.getter, this.composeGetter, Projection.fromGetter)
   }
 
   public composeLens<B>(sb: Lens<A, B>): Projection<S, B> {
-    return this.compose(sb.asProjection())
+    return pipe(sb, Projection.fromLens, this.compose)
   }
 
   public combineLens<B, R>(sb: Lens<S, B>, f: (a: A, b: B) => R): Projection<S, R>
@@ -68,9 +81,10 @@ export class Projection<S, A> {
     ss: [Lens<S, B>, Lens<S, C>, Lens<S, D>, Lens<S, E>],
     f: (a: A, b: B, c: C, d: D, e: E) => R
   ): Projection<S, R>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types
   public combineLens<R>(sb: any, f: any): Projection<S, R> {
-    const args = Array.isArray(sb) ? sb.map(Projection.fromLens) : sb.asProjection()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const args = Array.isArray(sb) ? sb.map(Projection.fromLens) : (Projection.fromLens(sb) as any)
     return this.combine(args, f)
   }
 
@@ -87,8 +101,8 @@ export class Projection<S, A> {
     ss: [Projection<S, B>, Projection<S, C>, Projection<S, D>, Projection<S, E>],
     f: (a: A, b: B, c: C, d: D, e: E) => R
   ): Projection<S, R>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public combine<A, B, C, D, E, R>(ss: any, f: any): Projection<S, R> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types
+  public combine<R>(ss: any, f: any): Projection<S, R> {
     const ps = Array.isArray(ss) ? [this, ...ss] : [this, ss]
     return Projection.mapN(ps as [Projection<S, unknown>], f)
   }
@@ -98,19 +112,23 @@ export class Projection<S, A> {
   }
 
   public get(s: S): A {
-    return Projection.get(this, s)
+    return this.getter.get(s)
   }
 
   public static of<S, A>(getter: (s: S) => A): Projection<S, A> {
     return new Projection(getter)
   }
 
-  public static fromLens<S, A>(lens: Lens<S, A>) {
-    return lens.asProjection()
+  public static fromLens<S, A>(lens: Lens<S, A>): Projection<S, A> {
+    return new Projection(lens.asGetter())
+  }
+
+  public static fromGetter<S, A>(getter: Getter<S, A>): Projection<S, A> {
+    return new Projection(getter)
   }
 
   public static map<S, A, B>(sa: Projection<S, A>, f: (a: A) => B): Projection<S, B> {
-    return Projection.mapN<S, A, B, B>([sa], f)
+    return Projection.mapN<S, A, B>([sa], f)
   }
 
   public static map2<S, A, B, R>(
@@ -120,7 +138,7 @@ export class Projection<S, A> {
     return Projection.mapN<S, A, B, R>(ss, f)
   }
 
-  public static mapN<S, A, B, R>(ss: [Projection<S, A>], f: (a: A) => R): Projection<S, R>
+  public static mapN<S, A, R>(ss: [Projection<S, A>], f: (a: A) => R): Projection<S, R>
   public static mapN<S, A, B, R>(
     ss: [Projection<S, A>, Projection<S, B>],
     f: (a: A, b: B) => R
@@ -137,39 +155,50 @@ export class Projection<S, A> {
     ss: [Projection<S, A>, Projection<S, B>, Projection<S, C>, Projection<S, D>, Projection<S, E>],
     f: (a: A, b: B, c: C, d: D, e: E) => R
   ): Projection<S, R>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public static mapN<S, R>(ss: any, f: any): Projection<S, R> {
+  public static mapN<S, R>(
+    ss: readonly Projection<S, unknown>[],
+    f: (...args: unknown[]) => R
+  ): Projection<S, R> {
     return Projection.of(
       flow(
-        s => ss.map((p: Projection<S, unknown>) => p.get(s)),
+        s => ss.map(p => p.get(s)),
         p => f(...p)
       )
     )
   }
 
   public static get<S, A>(p: Projection<S, A>, s: S): A {
-    return p.lens.get(s)
+    return p.get(s)
   }
 
   public static fromProp<S>() {
-    return <P extends keyof S>(prop: P) => Lens.fromProp<S>()(prop).asProjection()
+    return <P extends keyof S>(prop: P): Projection<S, S[P]> =>
+      pipe(prop, Lens.fromProp<S>(), Projection.fromLens)
   }
 
   public static fromProps<S>() {
-    return <P extends keyof S>(props: P[]) => Lens.fromProps<S>()(props).asProjection()
+    return <P extends keyof S>(props: P[]): Projection<S, {[K in P]: S[K]}> =>
+      pipe(props, Lens.fromProps<S>(), Projection.fromLens)
   }
 
-  public static fromPath<S>() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return ((path: any) => Lens.fromPath<S>()(path).asProjection()) as ProjectionFromPath<S>
+  public static fromPath<S>(): ProjectionFromPath<S> {
+    return ((path: never) =>
+      pipe(path, Lens.fromPath<S>(), Projection.fromLens)) as ProjectionFromPath<S>
   }
 
   public static fromNullableProp<S>() {
-    return <A extends S[K], K extends keyof S>(k: K, defaultValue: A) =>
-      Lens.fromNullableProp<S>()(k, defaultValue).asProjection()
+    return <A extends S[K], K extends keyof S>(
+      k: K,
+      defaultValue: A
+    ): Projection<S, NonNullable<S[K]>> =>
+      pipe(Lens.fromNullableProp<S>()(k, defaultValue), Projection.fromLens)
   }
 }
 
 Lens.prototype.asProjection = function () {
   return new Projection(this.get)
+}
+
+Getter.prototype.asProjection = function () {
+  return new Projection(this)
 }
