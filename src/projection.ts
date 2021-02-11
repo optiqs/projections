@@ -3,9 +3,15 @@ import {Lens, Getter} from 'monocle-ts'
 
 declare module 'monocle-ts' {
   interface Lens<S, A> {
+    /**
+     * @deprecated
+     */
     asProjection(): Projection<S, A>
   }
   interface Getter<S, A> {
+    /**
+     * @deprecated
+     */
     asProjection(): Projection<S, A>
   }
 }
