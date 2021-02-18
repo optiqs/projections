@@ -12,6 +12,7 @@
   "scripts": {
     "build": "rimraf lib/ && tsc && babel ./src --out-dir lib --extensions '.ts' --ignore '**/*.test.ts'",
     "test": "jest",
+    "test-watch": "jest --watch",
     "lint": "eslint src/**",
     "lint-fix": "eslint src/** --fix",
     "pre-commit": "lint-staged --quiet && npm run build",

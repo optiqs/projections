@@ -1,4 +1,4 @@
-import {flow, pipe} from 'fp-ts/lib/function'
+import {flow, FunctionN, pipe} from 'fp-ts/lib/function'
 import {Lens, Getter} from 'monocle-ts'
 
 declare module 'monocle-ts' {
@@ -35,15 +35,20 @@ export interface ProjectionFromPath<S> {
   <K1 extends keyof S>(path: [K1]): Projection<S, S[K1]>
 }
 
-export class Projection<S, A> {
+type GetterFunction<S, A> = (s: S) => A
+
+interface Gettable<S, A> {
+  get: GetterFunction<S, A>
+}
+
+export class Projection<S, A> implements Gettable<S, A> {
   private readonly getter: Getter<S, A>
 
   private readonly composeGetter: <B>(ab: Getter<A, B>) => Getter<S, B>
 
-  constructor(getter: (s: S) => A)
+  constructor(getter: GetterFunction<S, A>)
   constructor(getter: Getter<S, A>)
-  constructor(getter: ((s: S) => A) | Getter<S, A>)
-  constructor(getter: ((s: S) => A) | Getter<S, A>) {
+  constructor(getter: GetterFunction<S, A> | Getter<S, A>) {
     this.getter = getter instanceof Getter ? getter : new Getter(getter)
     this.composeGetter = this.getter.compose.bind(this.getter)
 
@@ -60,26 +65,27 @@ export class Projection<S, A> {
     return this.getter
   }
 
-  public compose<B>(sb: Projection<A, B>): Projection<S, B> {
-    return pipe(sb.getter, this.composeGetter, Projection.fromGetter)
+  public compose<B>(sb: Gettable<A, B>): Projection<S, B> {
+    const getter = Projection.from(sb).getter
+    return pipe(getter, this.composeGetter, Projection.fromGetter)
   }
 
   public composeLens<B>(sb: Lens<A, B>): Projection<S, B> {
     return pipe(sb, Projection.fromLens, this.compose)
   }
 
-  public combineLens<B, R>(sb: Lens<S, B>, f: (a: A, b: B) => R): Projection<S, R>
+  public combineLens<B, R>(sb: Lens<S, B>, f: FunctionN<[A, B], R>): Projection<S, R>
   public combineLens<B, C, R>(
     ss: [Lens<S, B>, Lens<S, C>],
-    f: (a: A, b: B, c: C) => R
+    f: FunctionN<[A, B, C], R>
   ): Projection<S, R>
   public combineLens<B, C, D, R>(
     ss: [Lens<S, B>, Lens<S, C>, Lens<S, D>],
-    f: (a: A, b: B, c: C, d: D) => R
+    f: FunctionN<[A, B, C, D], R>
   ): Projection<S, R>
   public combineLens<B, C, D, E, R>(
     ss: [Lens<S, B>, Lens<S, C>, Lens<S, D>, Lens<S, E>],
-    f: (a: A, b: B, c: C, d: D, e: E) => R
+    f: FunctionN<[A, B, C, D, E], R>
   ): Projection<S, R>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types
   public combineLens<R>(sb: any, f: any): Projection<S, R> {
@@ -88,18 +94,33 @@ export class Projection<S, A> {
     return this.combine(args, f)
   }
 
-  public combine<B, R>(sb: Projection<S, B>, f: (a: A, b: B) => R): Projection<S, R>
+  public combine<B, R>(sb: Gettable<S, B>, f: FunctionN<[A, B], R>): Projection<S, R>
   public combine<B, C, R>(
-    ss: [Projection<S, B>, Projection<S, C>],
-    f: (a: A, b: B, c: C) => R
+    ss: [Gettable<S, B>, Gettable<S, C>],
+    f: FunctionN<[A, B, C], R>
   ): Projection<S, R>
   public combine<B, C, D, R>(
-    ss: [Projection<S, B>, Projection<S, C>, Projection<S, D>],
-    f: (a: A, b: B, c: C, d: D) => R
+    ss: [Gettable<S, B>, Gettable<S, C>, Gettable<S, D>],
+    f: FunctionN<[A, B, C, D], R>
   ): Projection<S, R>
   public combine<B, C, D, E, R>(
-    ss: [Projection<S, B>, Projection<S, C>, Projection<S, D>, Projection<S, E>],
-    f: (a: A, b: B, c: C, d: D, e: E) => R
+    ss: [Gettable<S, B>, Gettable<S, C>, Gettable<S, D>, Gettable<S, E>],
+    f: FunctionN<[A, B, C, D, E], R>
+  ): Projection<S, R>
+  public combine<B, C, D, E, F, R>(
+    ss: [Gettable<S, B>, Gettable<S, C>, Gettable<S, D>, Gettable<S, E>, Gettable<S, F>],
+    f: FunctionN<[A, B, C, D, E, F], R>
+  ): Projection<S, R>
+  public combine<B, C, D, E, F, G, R>(
+    ss: [
+      Gettable<S, B>,
+      Gettable<S, C>,
+      Gettable<S, D>,
+      Gettable<S, E>,
+      Gettable<S, F>,
+      Gettable<S, G>
+    ],
+    f: FunctionN<[A, B, C, D, E, F, G], R>
   ): Projection<S, R>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types
   public combine<R>(ss: any, f: any): Projection<S, R> {
@@ -115,8 +136,23 @@ export class Projection<S, A> {
     return this.getter.get(s)
   }
 
-  public static of<S, A>(getter: (s: S) => A): Projection<S, A> {
+  public static of<S, A>(getter: GetterFunction<S, A>): Projection<S, A> {
     return new Projection(getter)
+  }
+
+  /**
+   * Creates a projection from anything that has an appropriate `get` method.
+   * If the provided argument is already a projection, that same instance is returned.
+   */
+  public static from<S, A>(gettable: Gettable<S, A>): Projection<S, A> {
+    if (gettable instanceof Projection) {
+      return gettable
+    }
+    if (gettable instanceof Lens) {
+      return Projection.fromLens(gettable)
+    }
+
+    return Projection.of(gettable.get)
   }
 
   public static fromLens<S, A>(lens: Lens<S, A>): Projection<S, A> {
@@ -127,36 +163,60 @@ export class Projection<S, A> {
     return new Projection(getter)
   }
 
-  public static map<S, A, B>(sa: Projection<S, A>, f: (a: A) => B): Projection<S, B> {
+  public static map<S, A, B>(sa: Gettable<S, A>, f: (a: A) => B): Projection<S, B> {
     return Projection.mapN<S, A, B>([sa], f)
   }
 
+  /**@deprecated Use `mapN` instead*/
   public static map2<S, A, B, R>(
-    ss: [Projection<S, A>, Projection<S, B>],
-    f: (a: A, b: B) => R
+    ss: [Gettable<S, A>, Gettable<S, B>],
+    f: FunctionN<[A, B], R>
   ): Projection<S, R> {
     return Projection.mapN<S, A, B, R>(ss, f)
   }
 
-  public static mapN<S, A, R>(ss: [Projection<S, A>], f: (a: A) => R): Projection<S, R>
+  public static mapN<S, A, R>(ss: [Gettable<S, A>], f: FunctionN<[A], R>): Projection<S, R>
   public static mapN<S, A, B, R>(
-    ss: [Projection<S, A>, Projection<S, B>],
-    f: (a: A, b: B) => R
+    ss: [Gettable<S, A>, Gettable<S, B>],
+    f: FunctionN<[A, B], R>
   ): Projection<S, R>
   public static mapN<S, A, B, C, R>(
-    ss: [Projection<S, A>, Projection<S, B>, Projection<S, C>],
-    f: (a: A, b: B, c: C) => R
+    ss: [Gettable<S, A>, Gettable<S, B>, Gettable<S, C>],
+    f: FunctionN<[A, B, C], R>
   ): Projection<S, R>
   public static mapN<S, A, B, C, D, R>(
-    ss: [Projection<S, A>, Projection<S, B>, Projection<S, C>, Projection<S, D>],
-    f: (a: A, b: B, c: C, d: D) => R
+    ss: [Gettable<S, A>, Gettable<S, B>, Gettable<S, C>, Gettable<S, D>],
+    f: FunctionN<[A, B, C, D], R>
   ): Projection<S, R>
   public static mapN<S, A, B, C, D, E, R>(
-    ss: [Projection<S, A>, Projection<S, B>, Projection<S, C>, Projection<S, D>, Projection<S, E>],
-    f: (a: A, b: B, c: C, d: D, e: E) => R
+    ss: [Gettable<S, A>, Gettable<S, B>, Gettable<S, C>, Gettable<S, D>, Gettable<S, E>],
+    f: FunctionN<[A, B, C, D, E], R>
+  ): Projection<S, R>
+  public static mapN<S, A, B, C, D, E, F, R>(
+    ss: [
+      Gettable<S, A>,
+      Gettable<S, B>,
+      Gettable<S, C>,
+      Gettable<S, D>,
+      Gettable<S, E>,
+      Gettable<S, F>
+    ],
+    f: FunctionN<[A, B, C, D, E, F], R>
+  ): Projection<S, R>
+  public static mapN<S, A, B, C, D, E, F, G, R>(
+    ss: [
+      Gettable<S, A>,
+      Gettable<S, B>,
+      Gettable<S, C>,
+      Gettable<S, D>,
+      Gettable<S, E>,
+      Gettable<S, F>,
+      Gettable<S, G>
+    ],
+    f: FunctionN<[A, B, C, D, E, F, G], R>
   ): Projection<S, R>
   public static mapN<S, R>(
-    ss: readonly Projection<S, unknown>[],
+    ss: readonly Gettable<S, unknown>[],
     f: (...args: unknown[]) => R
   ): Projection<S, R> {
     return Projection.of(
