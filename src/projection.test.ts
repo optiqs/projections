@@ -73,6 +73,21 @@ describe('Projection.combine', () => {
     expect(combined).toBeInstanceOf(Projection)
   })
 
+  test('can merge different kinds of gettables', () => {
+    type A = {value: string}
+    type B = {type: number}
+    type C = {foo: boolean}
+    type S = {a: A; b: B; c: C}
+    const s: S = {a: {value: 'value'}, b: {type: 1}, c: {foo: false}}
+    const p1 = Projection.fromProp<S>()('a')
+    const p2 = {get: (s: S) => s.b}
+    const p3 = Lens.fromProp<S>()('c')
+    const combined = p1.combine([p2, p3], (a, b, c) => ({d: `${a.value}-${b.type}-${c.foo}`}))
+    const expected = {d: `${s.a.value}-${s.b.type}-${s.c.foo}`}
+    const actual = combined.get(s)
+    expect(actual).toEqual(expected)
+    expect(combined).toBeInstanceOf(Projection)
+  })
 })
 
 test('Projection.combineLens: combines a projection with one or many lenses', () => {
