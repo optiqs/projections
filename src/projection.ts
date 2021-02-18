@@ -65,8 +65,9 @@ export class Projection<S, A> implements Gettable<S, A> {
     return this.getter
   }
 
-  public compose<B>(sb: Projection<A, B>): Projection<S, B> {
-    return pipe(sb.getter, this.composeGetter, Projection.fromGetter)
+  public compose<B>(sb: Gettable<A, B>): Projection<S, B> {
+    const getter = Projection.from(sb).getter
+    return pipe(getter, this.composeGetter, Projection.fromGetter)
   }
 
   public composeLens<B>(sb: Lens<A, B>): Projection<S, B> {
@@ -140,7 +141,8 @@ export class Projection<S, A> implements Gettable<S, A> {
   }
 
   /**
-   * Creates a projection from anything that has an appropriate `get` method
+   * Creates a projection from anything that has an appropriate `get` method.
+   * If the provided argument is already a projection, that same instance is returned.
    */
   public static from<S, A>(gettable: Gettable<S, A>): Projection<S, A> {
     if (gettable instanceof Projection) {
@@ -161,13 +163,13 @@ export class Projection<S, A> implements Gettable<S, A> {
     return new Projection(getter)
   }
 
-  public static map<S, A, B>(sa: Projection<S, A>, f: (a: A) => B): Projection<S, B> {
+  public static map<S, A, B>(sa: Gettable<S, A>, f: (a: A) => B): Projection<S, B> {
     return Projection.mapN<S, A, B>([sa], f)
   }
 
   /**@deprecated Use `mapN` instead*/
   public static map2<S, A, B, R>(
-    ss: [Projection<S, A>, Projection<S, B>],
+    ss: [Gettable<S, A>, Gettable<S, B>],
     f: FunctionN<[A, B], R>
   ): Projection<S, R> {
     return Projection.mapN<S, A, B, R>(ss, f)

@@ -156,12 +156,22 @@ test('Projection.of: constructs a projection for a getter', () => {
   const p = Projection.of(getter)
   expect(p).toBeInstanceOf(Projection)
 })
-test('Projection.from: constructs a projection for a gettable object', () => {
-  type S = {a: string}
-  const get = (s: S) => s.a
-  const p = Projection.from({get})
-  expect(p).toBeInstanceOf(Projection)
-  expect(p.get({a: 'value'})).toEqual('value')
+describe('Projection.from', () => {
+  test('constructs a projection for a gettable object', () => {
+    type S = {a: string}
+    const get = (s: S) => s.a
+    const p = Projection.from({get})
+    expect(p).toBeInstanceOf(Projection)
+    expect(p.get({a: 'value'})).toEqual('value')
+    expect(Projection.from(Projection.from({get}))).not.toBe(p)
+  })
+  test('returns the same instance if a projection is provided', () => {
+    type S = {a: string}
+    const get = (s: S) => s.a
+    const p = Projection.from({get})
+    expect(p).toBeInstanceOf(Projection)
+    expect(Projection.from(p)).toBe(p)
+  })
 })
 
 test('Projection.fromLens: constructs a projection from a lens', () => {
