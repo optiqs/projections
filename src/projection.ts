@@ -43,9 +43,24 @@ export interface ProjectionFromPath<S> {
 
 type GetterFunction<S, A> = (s: S) => A
 
-interface Gettable<S, A> {
+export interface Gettable<S, A> {
   get: GetterFunction<S, A>
 }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type TupleType = readonly any[]
+
+export type GettableTuple<S, Tuple extends TupleType> = {
+  readonly [Index in keyof Tuple]: Gettable<S, Tuple[Index]>
+} & {
+  readonly length: Tuple['length']
+}
+
+export type ProjectionMapFunction<
+  Projections extends TupleType,
+  Return
+> = Projections extends GettableTuple<infer _, infer Args>
+  ? (...args: Args) => Return
+  : (...args: unknown[]) => Return
 
 export class Projection<S, A> implements Gettable<S, A> {
   private readonly getter: Getter<S, A>
@@ -80,6 +95,7 @@ export class Projection<S, A> implements Gettable<S, A> {
     return pipe(sb, Projection.fromLens, this.compose)
   }
 
+  /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types */
   public combineLens<B, R>(sb: Lens<S, B>, f: FunctionN<[A, B], R>): Projection<S, R>
   public combineLens<B, C, R>(
     ss: [Lens<S, B>, Lens<S, C>],
@@ -93,47 +109,38 @@ export class Projection<S, A> implements Gettable<S, A> {
     ss: [Lens<S, B>, Lens<S, C>, Lens<S, D>, Lens<S, E>],
     f: FunctionN<[A, B, C, D, E], R>
   ): Projection<S, R>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types
   public combineLens<R>(sb: any, f: any): Projection<S, R> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const args = Array.isArray(sb) ? sb.map(Projection.fromLens) : (Projection.fromLens(sb) as any)
     return this.combine(args, f)
   }
+  /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types */
 
-  public combine<B, R>(sb: Gettable<S, B>, f: FunctionN<[A, B], R>): Projection<S, R>
-  public combine<B, C, R>(
-    ss: [Gettable<S, B>, Gettable<S, C>],
-    f: FunctionN<[A, B, C], R>
+  /**
+   * Merge one or more projection-like objects with the provided mapping function.
+   *
+   * To get type inferrence working properly, you may need to use `as const`
+   * @example
+   * declare const p1 : Projection<S,A>
+   * declare const p2 : { get: (s: S) => B }
+   * declare const p3 : Lens<S, A>
+   * const combined = p1.combine([p2, p3] as const, (a, b, c) => ({
+   *   d: `${a.foo}-${b.bar}-${c.baz}`
+   * }))
+   */
+  /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types */
+  public combine<Types extends TupleType, R>(
+    ss: GettableTuple<S, Types>,
+    f: (arg_0: A, ...args: Types) => R
   ): Projection<S, R>
-  public combine<B, C, D, R>(
-    ss: [Gettable<S, B>, Gettable<S, C>, Gettable<S, D>],
-    f: FunctionN<[A, B, C, D], R>
-  ): Projection<S, R>
-  public combine<B, C, D, E, R>(
-    ss: [Gettable<S, B>, Gettable<S, C>, Gettable<S, D>, Gettable<S, E>],
-    f: FunctionN<[A, B, C, D, E], R>
-  ): Projection<S, R>
-  public combine<B, C, D, E, F, R>(
-    ss: [Gettable<S, B>, Gettable<S, C>, Gettable<S, D>, Gettable<S, E>, Gettable<S, F>],
-    f: FunctionN<[A, B, C, D, E, F], R>
-  ): Projection<S, R>
-  public combine<B, C, D, E, F, G, R>(
-    ss: [
-      Gettable<S, B>,
-      Gettable<S, C>,
-      Gettable<S, D>,
-      Gettable<S, E>,
-      Gettable<S, F>,
-      Gettable<S, G>
-    ],
-    f: FunctionN<[A, B, C, D, E, F, G], R>
-  ): Projection<S, R>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types
-  public combine<R>(ss: any, f: any): Projection<S, R> {
-    const ps = Array.isArray(ss) ? [this, ...ss] : [this, ss]
-    return Projection.mapN(ps as [Projection<S, unknown>], f)
+  public combine<B, R>(ss: Gettable<S, B>, f: (arg_0: A, arg_1: B) => R): Projection<S, R>
+  public combine<Types extends TupleType, R>(ss: any, f: any): Projection<S, R> {
+    const ps: GettableTuple<S, [A, ...Types]> = Array.isArray(ss)
+      ? [this, ...ss]
+      : ([this, ss] as any)
+
+    return Projection.mapN(ps, f)
   }
-
+  /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types */
   public map<B>(f: (a: A) => B): Projection<S, B> {
     return Projection.map(this, f)
   }
@@ -154,9 +161,6 @@ export class Projection<S, A> implements Gettable<S, A> {
     if (gettable instanceof Projection) {
       return gettable
     }
-    if (gettable instanceof Lens) {
-      return Projection.fromLens(gettable)
-    }
 
     return Projection.of(gettable.get)
   }
@@ -170,7 +174,7 @@ export class Projection<S, A> implements Gettable<S, A> {
   }
 
   public static map<S, A, B>(sa: Gettable<S, A>, f: (a: A) => B): Projection<S, B> {
-    return Projection.mapN<S, A, B>([sa], f)
+    return Projection.mapN([sa], f)
   }
 
   /**@deprecated Use `mapN` instead*/
@@ -178,73 +182,44 @@ export class Projection<S, A> implements Gettable<S, A> {
     ss: [Gettable<S, A>, Gettable<S, B>],
     f: FunctionN<[A, B], R>
   ): Projection<S, R> {
-    return Projection.mapN<S, A, B, R>(ss, f)
+    return Projection.mapN(ss, f)
   }
 
-  public static mapN<S, A, R>(ss: [Gettable<S, A>], f: FunctionN<[A], R>): Projection<S, R>
-  public static mapN<S, A, B, R>(
-    ss: [Gettable<S, A>, Gettable<S, B>],
-    f: FunctionN<[A, B], R>
-  ): Projection<S, R>
-  public static mapN<S, A, B, C, R>(
-    ss: [Gettable<S, A>, Gettable<S, B>, Gettable<S, C>],
-    f: FunctionN<[A, B, C], R>
-  ): Projection<S, R>
-  public static mapN<S, A, B, C, D, R>(
-    ss: [Gettable<S, A>, Gettable<S, B>, Gettable<S, C>, Gettable<S, D>],
-    f: FunctionN<[A, B, C, D], R>
-  ): Projection<S, R>
-  public static mapN<S, A, B, C, D, E, R>(
-    ss: [Gettable<S, A>, Gettable<S, B>, Gettable<S, C>, Gettable<S, D>, Gettable<S, E>],
-    f: FunctionN<[A, B, C, D, E], R>
-  ): Projection<S, R>
-  public static mapN<S, A, B, C, D, E, F, R>(
-    ss: [
-      Gettable<S, A>,
-      Gettable<S, B>,
-      Gettable<S, C>,
-      Gettable<S, D>,
-      Gettable<S, E>,
-      Gettable<S, F>
-    ],
-    f: FunctionN<[A, B, C, D, E, F], R>
-  ): Projection<S, R>
-  public static mapN<S, A, B, C, D, E, F, G, R>(
-    ss: [
-      Gettable<S, A>,
-      Gettable<S, B>,
-      Gettable<S, C>,
-      Gettable<S, D>,
-      Gettable<S, E>,
-      Gettable<S, F>,
-      Gettable<S, G>
-    ],
-    f: FunctionN<[A, B, C, D, E, F, G], R>
-  ): Projection<S, R>
-  public static mapN<S, R>(
-    ss: readonly Gettable<S, unknown>[],
-    f: (...args: unknown[]) => R
+  /**
+   * Merge one or more projection-like objects with the provided mapping function.
+   *
+   * To get type inferrence working properly, you may need to use `as const`
+   * @example
+   * declare const p1 : Projection<S,A>
+   * declare const p2 : { get: (s: S) => B }
+   * declare const p3 : Lens<S, A>
+   * const combined = Projection.mapN([p1, p2, p3] as const, (a, b, c) => ({
+   *   d: `${a.foo}-${b.bar}-${c.baz}`
+   * }))
+   */
+  public static mapN<S, Types extends TupleType, R>(
+    projections: GettableTuple<S, Types>,
+    f: (...args: Types) => R
   ): Projection<S, R> {
     return Projection.of(
       flow(
-        s => ss.map(p => p.get(s)),
+        s => projections.map(p => p.get(s)) as [...Types],
         p => f(...p)
       )
     )
   }
-
   public static get<S, A>(p: Projection<S, A>, s: S): A {
     return p.get(s)
   }
 
   public static fromProp<S>() {
     return <P extends keyof S>(prop: P): Projection<S, S[P]> =>
-      pipe(prop, Lens.fromProp<S>(), Projection.fromLens)
+      pipe(prop, Lens.fromProp<S>(), Projection.from)
   }
 
   public static fromProps<S>() {
     return <P extends keyof S>(props: P[]): Projection<S, {[K in P]: S[K]}> =>
-      pipe(props, Lens.fromProps<S>(), Projection.fromLens)
+      pipe(props, Lens.fromProps<S>(), Projection.from)
   }
 
   public static fromPath<S>(): ProjectionFromPath<S> {
