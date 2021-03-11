@@ -208,6 +208,23 @@ export class Projection<S, A> implements Gettable<S, A> {
       )
     )
   }
+
+  /**
+   * Same as `mapN`, but in a format that can be piped.
+   * @example
+   * const combined = pipe(
+   *   [p1, p2, p3] as const,
+   *   Projection.pipeMap((a, b, c) => ({
+   *     d: `${a.value}-${b.type}-${c.foo}`
+   *   }))
+   * )
+   */
+  public static mapF<Types extends TupleType, R>(f: (...args: Types) => R) {
+    return <S>(projections: GettableTuple<S, Types>): Projection<S, R> => {
+      return Projection.mapN(projections, f)
+    }
+  }
+
   public static get<S, A>(p: Projection<S, A>, s: S): A {
     return p.get(s)
   }
