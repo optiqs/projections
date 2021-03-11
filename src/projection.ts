@@ -87,33 +87,28 @@ export class Projection<S, A> implements Gettable<S, A> {
     const getter = Projection.from(sb).getter
     return pipe(getter, this.composeGetter, Projection.fromGetter)
   }
-  /**@deprecated */
+
   public composeLens<B>(sb: Lens<A, B>): Projection<S, B> {
     return this.compose(sb)
   }
 
-  /**@deprecated Use `combine` instead */
   public combineLens<B, R>(sb: Lens<S, B>, f: FunctionN<[A, B], R>): Projection<S, R>
 
-  /**@deprecated Use `combine` instead */
   public combineLens<B, C, R>(
     ss: [Lens<S, B>, Lens<S, C>],
     f: FunctionN<[A, B, C], R>
   ): Projection<S, R>
 
-  /**@deprecated Use `combine` instead */
   public combineLens<B, C, D, R>(
     ss: [Lens<S, B>, Lens<S, C>, Lens<S, D>],
     f: FunctionN<[A, B, C, D], R>
   ): Projection<S, R>
 
-  /**@deprecated Use `combine` instead */
   public combineLens<B, C, D, E, R>(
     ss: [Lens<S, B>, Lens<S, C>, Lens<S, D>, Lens<S, E>],
     f: FunctionN<[A, B, C, D, E], R>
   ): Projection<S, R>
 
-  /**@deprecated Use `combine` instead */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types
   public combineLens<R>(sb: any, f: any): Projection<S, R> {
     return this.combine(sb, f)
@@ -187,9 +182,8 @@ export class Projection<S, A> implements Gettable<S, A> {
     return Projection.of(gettable.get, memoizeResolver)
   }
 
-  /** @deprecated Use `Projection.from` instead */
   public static fromLens<S, A>(lens: Lens<S, A>): Projection<S, A> {
-    return Projection.from(lens)
+    return new Projection(lens.asGetter())
   }
 
   public static fromGetter<S, A>(getter: Getter<S, A>): Projection<S, A> {
@@ -268,12 +262,12 @@ export class Projection<S, A> implements Gettable<S, A> {
 
   public static fromProp<S>() {
     return <P extends keyof S>(prop: P): Projection<S, S[P]> =>
-      pipe(prop, Lens.fromProp<S>(), Projection.from)
+      pipe(prop, Lens.fromProp<S>(), Projection.fromLens)
   }
 
   public static fromProps<S>() {
     return <P extends keyof S>(props: P[]): Projection<S, {[K in P]: S[K]}> =>
-      pipe(props, Lens.fromProps<S>(), Projection.from)
+      pipe(props, Lens.fromProps<S>(), Projection.fromLens)
   }
 
   public static fromPath<S>(): ProjectionFromPath<S> {
