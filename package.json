@@ -5,6 +5,11 @@
   "main": "lib/index.js",
   "module": "lib/index.js",
   "types": "lib/index.d.ts",
+  "license": "MIT",
+  "keywords": [
+    "optics",
+    "projections"
+  ],
   "sideEffects": [
     "lib/projection.js",
     "lib/index.js"
@@ -47,17 +52,15 @@
   },
   "husky": {
     "hooks": {
-      "pre-commit": "npm run pre-commit"
+      "pre-commit": "lint-staged",
+      "pre-push": "npm run build"
     }
   },
   "lint-staged": {
-    "*.{ts}": [
-      "npm run prettier-write",
+    "*.ts": [
+      "eslint --fix",
+      "prettier --write",
       "git add"
-    ],
-    "*src/**/*.{ts}": [
-      "npm run lint"
     ]
-  },
-  "keywords": []
+  }
 }
