@@ -1,21 +1,6 @@
 import {flow, FunctionN, pipe} from 'fp-ts/lib/function'
 import {Lens, Getter} from 'monocle-ts'
 
-declare module 'monocle-ts' {
-  interface Lens<S, A> {
-    /**
-     * @deprecated
-     */
-    asProjection(): Projection<S, A>
-  }
-  interface Getter<S, A> {
-    /**
-     * @deprecated
-     */
-    asProjection(): Projection<S, A>
-  }
-}
-
 export interface ProjectionFromPath<S> {
   <
     K1 extends keyof S,
@@ -250,6 +235,15 @@ export class Projection<S, A> implements Gettable<S, A> {
       defaultValue: A
     ): Projection<S, NonNullable<S[K]>> =>
       pipe(Lens.fromNullableProp<S>()(k, defaultValue), Projection.fromLens)
+  }
+}
+
+declare module 'monocle-ts' {
+  interface Lens<S, A> {
+    asProjection(): Projection<S, A>
+  }
+  interface Getter<S, A> {
+    asProjection(): Projection<S, A>
   }
 }
 

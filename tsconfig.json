@@ -4,6 +4,7 @@
     "esModuleInterop": true,
     "declaration": true,
     "outDir": "lib/",
+    "emitDeclarationOnly": true,
     "sourceMap": true,
     "lib": ["es6"],
     "moduleResolution": "node"
