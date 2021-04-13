@@ -1,12 +1,17 @@
 import {flow, FunctionN, identity, pipe} from 'fp-ts/lib/function'
 import {Lens, Getter} from 'monocle-ts'
 import lodashMemoize from 'lodash/memoize'
+import type {MapCacheConstructor, MemoizedFunction} from 'lodash'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type CacheResolver<S = any> = (s: S) => any
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type MemoizeFunction = <T extends (...args: any) => any>(func: T, resolver?: CacheResolver) => T
+type MaybeMemoizeFunction = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  <T extends (...args: any) => any>(func: T, resolver?: (...args: Parameters<T>) => any): T &
+    Partial<MemoizedFunction>
+  Cache?: MapCacheConstructor
+}
 
 export interface ProjectionFromPath<S> {
   <
@@ -49,7 +54,7 @@ interface MapResolvers<S, Args extends any[] = any[]> {
   mapResolver?: (...args: Args) => unknown
 }
 
-let memoize: MemoizeFunction = identity
+let defaultMemoizeFunction: MaybeMemoizeFunction = identity
 
 export type GettableTuple<S, Tuple extends TupleType> = {
   readonly [Index in keyof Tuple]: Gettable<S, Tuple[Index]>
@@ -61,21 +66,21 @@ export class Projection<S, A> implements Gettable<S, A> {
 
   private readonly composeGetter: <B>(ab: Getter<A, B>) => Getter<S, B>
 
-  private _memoize: MemoizeFunction
+  private readonly memoize: MaybeMemoizeFunction
 
   constructor(getter: GetterFunction<S, A>)
   constructor(getter: Getter<S, A>)
   constructor(getter: GetterFunction<S, A> | Getter<S, A>) {
-    this._memoize = memoize
+    this.memoize = defaultMemoizeFunction
     this.getter = getter instanceof Getter ? getter : new Getter(getter)
-    this.composeGetter = this._memoize(this.getter.compose.bind(this.getter))
+    this.composeGetter = this.memoize(this.getter.compose.bind(this.getter))
 
     this.compose = this.compose.bind(this)
     this.composeLens = this.composeLens.bind(this)
-    this.combineLens = this._memoize(this.combineLens.bind(this))
-    this.combine = this._memoize(this.combine.bind(this))
-    this.map = this._memoize(this.map.bind(this))
-    this.get = this._memoize(this.get.bind(this))
+    this.combineLens = this.memoize(this.combineLens.bind(this))
+    this.combine = this.memoize(this.combine.bind(this))
+    this.map = this.memoize(this.map.bind(this))
+    this.get = this.memoize(this.get.bind(this))
     this.asGetter = this.asGetter.bind(this)
   }
 
@@ -149,14 +154,14 @@ export class Projection<S, A> implements Gettable<S, A> {
   }
 
   public static isMemoized(): boolean {
-    return 'Cache' in memoize
+    return 'Cache' in defaultMemoizeFunction
   }
 
-  public static memoizeByDefault(value = true): void {
-    if (value) {
-      memoize = lodashMemoize
+  public static memoizeByDefault(enabled = true): void {
+    if (enabled) {
+      defaultMemoizeFunction = lodashMemoize
     } else {
-      memoize = identity
+      defaultMemoizeFunction = identity
     }
   }
 
@@ -164,7 +169,7 @@ export class Projection<S, A> implements Gettable<S, A> {
     getter: GetterFunction<S, A>,
     memoizeResolver?: CacheResolver<S>
   ): Projection<S, A> {
-    return new Projection(memoize(getter, memoizeResolver))
+    return new Projection(defaultMemoizeFunction(getter, memoizeResolver))
   }
 
   /**
@@ -226,7 +231,7 @@ export class Projection<S, A> implements Gettable<S, A> {
     return Projection.of(
       flow(
         s => projections.map(p => p.get(s)) as [A, ...T],
-        memoize(p => f(...p), resolvers.mapResolver)
+        defaultMemoizeFunction(p => f(...p), resolvers.mapResolver)
       ),
       resolvers.memoizeResolver
     )
