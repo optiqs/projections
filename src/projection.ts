@@ -221,14 +221,14 @@ export class Projection<S, A> implements Gettable<S, A> {
   public static mapN<S, A, T extends TupleType, R>(
     projections: GettableTuple<S, [A, ...T]>,
     f: FunctionN<[A, ...T], R>,
-    {memoizeResolver, mapResolver}: MapResolvers<S> = {}
+    resolvers: MapResolvers<S> = {}
   ): Projection<S, R> {
     return Projection.of(
       flow(
         s => projections.map(p => p.get(s)) as [A, ...T],
-        memoize(p => f(...p), mapResolver)
+        memoize(p => f(...p), resolvers.mapResolver)
       ),
-      memoizeResolver
+      resolvers.memoizeResolver
     )
   }
 
@@ -239,7 +239,14 @@ export class Projection<S, A> implements Gettable<S, A> {
    * const combined = pipe(
    *   [p1, p2, p3] as const,
    *   Projection.mapF((a, b, c) => ({
-   *     d: `${a.value}-${b.type}-${c.foo}`
+   *     d: `${a.foo}-${b.bar}-${c.baz}`
+   *   }))
+   *
+   * // Or
+   * const combined = pipe(
+   *   Projection.merge(p1, p2, p3),
+   *   Projection.mapF((a, b, c) => ({
+   *     d: `${a.foo}-${b.bar}-${c.baz}`
    *   }))
    * )
    * // Or:
