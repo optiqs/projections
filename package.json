@@ -15,7 +15,7 @@
     "lib/index.js"
   ],
   "scripts": {
-    "build": "rimraf lib/ && tsc && babel ./src --out-dir lib --extensions '.ts' --ignore '**/*.test.ts'",
+    "build": "rimraf lib/ && tsc && babel src --out-dir lib --extensions \".ts\" --ignore \"**/*.test.ts\"",
     "test": "jest",
     "test-watch": "jest --watch",
     "lint": "eslint src/**",
