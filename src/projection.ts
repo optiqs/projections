@@ -26,11 +26,14 @@ export interface ProjectionFromPath<S> {
   <K1 extends keyof S>(path: [K1]): Projection<S, S[K1]>
 }
 
-type GetterFunction<S, A> = (s: S) => A
+interface GetterFunction<S, A> {
+  (s: S): A
+}
 
 export interface Gettable<S, A> {
-  get: GetterFunction<S, A>
+  get(s: S): A
 }
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type TupleType = readonly any[]
 

@@ -3,6 +3,7 @@
     "module": "commonjs",
     "esModuleInterop": true,
     "declaration": true,
+    "strict": true,
     "outDir": "lib/",
     "emitDeclarationOnly": true,
     "sourceMap": true,
