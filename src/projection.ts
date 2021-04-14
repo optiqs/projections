@@ -3,6 +3,8 @@ import {Lens, Getter} from 'monocle-ts'
 import lodashMemoize from 'lodash/memoize'
 import type {MapCacheConstructor, MemoizedFunction} from 'lodash'
 
+const lodashIsReferenced = !!lodashMemoize
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type CacheResolver<S = any> = (s: S) => any
 
@@ -157,11 +159,26 @@ export class Projection<S, A> implements Gettable<S, A> {
     return 'Cache' in defaultMemoizeFunction
   }
 
-  public static memoizeByDefault(enabled = true): void {
-    if (enabled) {
-      defaultMemoizeFunction = lodashMemoize
+  public static memoizeByDefault(enabled: MaybeMemoizeFunction): void
+  public static memoizeByDefault(enabled?: boolean): void
+  public static memoizeByDefault(
+    enabledOrDefaultFunction: boolean | MaybeMemoizeFunction = true
+  ): void {
+    if (typeof enabledOrDefaultFunction === 'boolean') {
+      const enabled = enabledOrDefaultFunction
+      if (enabled === true) {
+        if (!lodashIsReferenced) {
+          throw new Error(
+            'Lodash memoize function not found. ' +
+              'To enable memoization by default, either reference lodash in your package or pass in a custom memoization function.'
+          )
+        }
+        defaultMemoizeFunction = lodashMemoize
+      } else {
+        defaultMemoizeFunction = identity
+      }
     } else {
-      defaultMemoizeFunction = identity
+      defaultMemoizeFunction = enabledOrDefaultFunction
     }
   }
 
