@@ -1,42 +1,98 @@
-import {Projection} from './'
 import {expectType} from 'tsd'
+import {Lens, lens} from 'monocle-ts'
 import {pipe} from 'fp-ts/function'
+import {Projection} from './'
 
 type A = string
 type B = number
-type C = 'c'
-type D = Date
+type C = Date
+type D = Map<string, boolean>
 type S = {a: A; b: B; c: C; d: D}
 
-const p1 = Projection.fromProp<S>()('a')
-const p2 = Projection.fromProp<S>()('b')
-const p3 = Projection.fromProp<S>()('c')
-const p4 = Projection.fromProp<S>()('d')
+const pA = Projection.fromProp<S>()('a')
+const pB = Projection.fromProp<S>()('b')
+const pC = Projection.fromProp<S>()('c')
+const pD = Projection.fromProp<S>()('d')
 
+// combine returns the correct type and infers the right types for the function parameters
 expectType<Projection<S, string>>(
-  p1.combine([p2, p3, p4] as const, (a, b, c, d) => `${a}-${b}-${c}-${d}`)
-)
-expectType<Projection<S, string>>(
-  Projection.mapN([p1, p2, p3, p4] as const, (a, b) => [a, b].join(''))
-)
-expectType<Projection<S, string>>(
-  Projection.mapN([p1, p2, p3, p4] as const, (a, b, c) => [a, b, c].join(''))
-)
-expectType<Projection<S, string>>(
-  Projection.mapN([p1, p2, p3, p4] as const, (a, b, c, d) => [a, b, c, d].join(''))
+  pA.combine([pB, pC, pD] as const, (a, b, c, d) => {
+    expectType<A>(a)
+    expectType<B>(b)
+    expectType<C>(c)
+    expectType<D>(d)
+    return `${a}-${b}-${c}-${d}`
+  })
 )
 
+// mapN returns the correct type and infers the right types for the function parameters
+expectType<Projection<S, string>>(
+  Projection.mapN([pA, pB], (a, b) => {
+    expectType<A>(a)
+    expectType<B>(b)
+    return [a, b].join('')
+  })
+)
+
+expectType<Projection<S, string>>(
+  Projection.mapN([pA, pB, pC], (a, b, c) => {
+    expectType<A>(a)
+    expectType<B>(b)
+    expectType<C>(c)
+    return [a, b, c].join('')
+  })
+)
+
+expectType<Projection<S, string>>(
+  Projection.mapN([pA, pB, pC, pD], (a, b, c, d) => {
+    expectType<A>(a)
+    expectType<B>(b)
+    expectType<C>(c)
+    expectType<D>(d)
+    return [a, b, c, d].join('')
+  })
+)
+
+// mapF returns the correct type and infers the right types for the function parameters with a const tuple
 expectType<Projection<S, string>>(
   pipe(
-    [p1, p2, p3, p4] as const,
-    Projection.mapF((a, b, c, d) => [a, b, c, d].join(''))
+    [pA, pB, pC, pD] as const,
+    Projection.mapF((a, b, c, d) => {
+      expectType<A>(a)
+      expectType<B>(b)
+      expectType<C>(c)
+      expectType<D>(d)
+      return [a, b, c, d].join('')
+    })
   )
 )
+
+// mapF returns the correct type and infers the right types for the function parameters via Projection.merge
+expectType<Projection<S, string>>(
+  pipe(
+    Projection.merge(pA, pB, pC, pD),
+    Projection.mapF((a, b, c, d) => {
+      expectType<A>(a)
+      expectType<B>(b)
+      expectType<C>(c)
+      expectType<D>(d)
+      return [a, b, c, d].join('')
+    })
+  )
+)
+
 expectType<Projection<S, {value: Array<A | B | C | D>}>>(
   pipe(
-    [p1, p2, p3, p4] as const,
+    [pA, pB, pC, pD] as const,
     Projection.mapF((a, b, c, d) => ({value: [a, b, c, d]}))
   )
 )
 
-expectType<[Projection<S, A>, Projection<S, B>, Projection<S, C>]>(Projection.merge(p1, p2, p3))
+// Projection.merge returns a strongly-typed tuple
+expectType<[Projection<S, A>, Projection<S, B>, Projection<S, C>]>(Projection.merge(pA, pB, pC))
+
+// Projection.merge returns a strongly-typed tuple with different gettable types
+
+const lA = Lens.fromProp<S>()('a')
+const lC = pipe(lens.id<S>(), lens.prop('c'))
+expectType<[Lens<S, A>, Projection<S, B>, lens.Lens<S, C>]>(Projection.merge(lA, pB, lC))
