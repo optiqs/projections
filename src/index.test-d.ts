@@ -14,9 +14,17 @@ const pB = Projection.fromProp<S>()('b')
 const pC = Projection.fromProp<S>()('c')
 const pD = Projection.fromProp<S>()('d')
 
-// combine returns the correct type and infers the right types for the function parameters
+// Projection.combine returns the correct type and infers the right types for the function parameters
 expectType<Projection<S, string>>(
-  pA.combine([pB, pC, pD] as const, (a, b, c, d) => {
+  pA.combine(pB, (a, b) => {
+    expectType<A>(a)
+    expectType<B>(b)
+    return `${a}-${b}`
+  })
+)
+
+expectType<Projection<S, string>>(
+  pA.combine([pB, pC, pD], (a, b, c, d) => {
     expectType<A>(a)
     expectType<B>(b)
     expectType<C>(c)
@@ -25,7 +33,7 @@ expectType<Projection<S, string>>(
   })
 )
 
-// mapN returns the correct type and infers the right types for the function parameters
+// Projection.mapN returns the correct type and infers the right types for the function parameters
 expectType<Projection<S, string>>(
   Projection.mapN([pA, pB], (a, b) => {
     expectType<A>(a)
@@ -53,7 +61,7 @@ expectType<Projection<S, string>>(
   })
 )
 
-// mapF returns the correct type and infers the right types for the function parameters with a const tuple
+// Projection.mapF returns the correct type and infers the right types for the function parameters with a const tuple
 expectType<Projection<S, string>>(
   pipe(
     [pA, pB, pC, pD] as const,
@@ -67,7 +75,7 @@ expectType<Projection<S, string>>(
   )
 )
 
-// mapF returns the correct type and infers the right types for the function parameters via Projection.merge
+// Projection.mapF returns the correct type and infers the right types for the function parameters via Projection.merge
 expectType<Projection<S, string>>(
   pipe(
     Projection.merge(pA, pB, pC, pD),
