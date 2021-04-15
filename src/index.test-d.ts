@@ -75,10 +75,10 @@ expectType<Projection<S, string>>(
   )
 )
 
-// Projection.mapF returns the correct type and infers the right types for the function parameters via Projection.merge
+// Projection.mapF returns the correct type and infers the right types for the function parameters via Projection.createTuple
 expectType<Projection<S, string>>(
   pipe(
-    Projection.merge(pA, pB, pC, pD),
+    Projection.createTuple(pA, pB, pC, pD),
     Projection.mapF((a, b, c, d) => {
       expectType<A>(a)
       expectType<B>(b)
@@ -96,11 +96,13 @@ expectType<Projection<S, {value: Array<A | B | C | D>}>>(
   )
 )
 
-// Projection.merge returns a strongly-typed tuple
-expectType<[Projection<S, A>, Projection<S, B>, Projection<S, C>]>(Projection.merge(pA, pB, pC))
+// Projection.createTuple returns a strongly-typed tuple
+expectType<[Projection<S, A>, Projection<S, B>, Projection<S, C>]>(
+  Projection.createTuple(pA, pB, pC)
+)
 
-// Projection.merge returns a strongly-typed tuple with different gettable types
+// Projection.createTuple returns a strongly-typed tuple with different gettable types
 
 const lA = Lens.fromProp<S>()('a')
 const lC = pipe(lens.id<S>(), lens.prop('c'))
-expectType<[Lens<S, A>, Projection<S, B>, lens.Lens<S, C>]>(Projection.merge(lA, pB, lC))
+expectType<[Lens<S, A>, Projection<S, B>, lens.Lens<S, C>]>(Projection.createTuple(lA, pB, lC))

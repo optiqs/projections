@@ -96,7 +96,7 @@ export class Projection<S, A> implements Gettable<S, A> {
   /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types */
 
   /**
-   * Merge one or more projection-like objects with the provided mapping function.
+   * Combine one or more projection-like objects with the provided mapping function.
    *
    * To get type inference working properly, you may need to use `as const`
    * @example
@@ -165,7 +165,7 @@ export class Projection<S, A> implements Gettable<S, A> {
   }
 
   /**
-   * Merge one or more projection-like objects with the provided mapping function.
+   * Combine one or more projection-like objects with the provided mapping function.
    *
    * @example
    * declare const p1 : Projection<S,A>
@@ -189,7 +189,7 @@ export class Projection<S, A> implements Gettable<S, A> {
 
   /**
    * Same as `mapN`, but in a format that can be piped.
-   * To get type inference working properly, you may need to use `as const` or Projection.merge
+   * To get type inference working properly, you may need to use `as const` or Projection.createTuple
    * @example
    * const combined = pipe(
    *   [p1, p2, p3] as const,
@@ -199,7 +199,7 @@ export class Projection<S, A> implements Gettable<S, A> {
    * )
    * // Or:
    * const combined = pipe(
-   *   Projection.merge(p1, p2, p3),
+   *   Projection.createTuple(p1, p2, p3),
    *   Projection.pipeMap((a, b, c) => ({
    *     d: `${a.value}-${b.type}-${c.foo}`
    *   }))
@@ -245,7 +245,7 @@ export class Projection<S, A> implements Gettable<S, A> {
    *
    * @see Projection.mapN
    */
-  public static merge<T extends GettableTuple<unknown, TupleType>>(...projections: T): T {
+  public static createTuple<T extends GettableTuple<unknown, TupleType>>(...projections: T): T {
     return projections
   }
 }

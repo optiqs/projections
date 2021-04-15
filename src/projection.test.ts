@@ -74,7 +74,7 @@ describe('Projection.combine', () => {
     expect(combined).toBeInstanceOf(Projection)
   })
 
-  test('can merge different kinds of gettables', () => {
+  test('can combine different kinds of gettables', () => {
     type A = {value: string}
     type B = {type: number}
     type C = {foo: boolean}
