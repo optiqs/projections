@@ -118,9 +118,9 @@ export class Projection<S, A> implements Gettable<S, A> {
   /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types */
   public combine<Types extends TupleType, R>(
     ss: GettableTuple<S, Types>,
-    f: (arg_0: A, ...args: Types) => R
+    f: FunctionN<[A, ...Types], R>
   ): Projection<S, R>
-  public combine<B, R>(ss: Gettable<S, B>, f: (arg_0: A, arg_1: B) => R): Projection<S, R>
+  public combine<B, R>(ss: Gettable<S, B>, f: FunctionN<[A, B], R>): Projection<S, R>
   public combine<Types extends TupleType, R>(ss: any, f: any): Projection<S, R> {
     const ps: GettableTuple<S, [A, ...Types]> = Array.isArray(ss)
       ? [this, ...ss]
@@ -187,7 +187,7 @@ export class Projection<S, A> implements Gettable<S, A> {
    */
   public static mapN<S, A, Types extends TupleType, R>(
     projections: GettableTuple<S, [A, ...Types]>,
-    f: (...args: [A, ...Types]) => R
+    f: FunctionN<[A, ...Types], R>
   ): Projection<S, R> {
     return Projection.of(
       flow(
