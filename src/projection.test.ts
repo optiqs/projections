@@ -1,6 +1,6 @@
 import {Projection} from './projection'
 import {Lens, Getter} from 'monocle-ts'
-import {pipe} from 'fp-ts/lib/pipeable'
+import {pipe} from 'fp-ts/function'
 
 test('Projection.fromProp: drills down to an objects prop', () => {
   type S = {a: string}
@@ -65,7 +65,7 @@ describe('Projection.combine', () => {
     const p3 = Projection.fromProp<S>()('c')
     const p4 = Projection.fromProp<S>()('d')
     const combined = p1.combine(
-      [p2, p3, p4] as const,
+      [p2, p3, p4],
       (a, b, c, d) => `${a.aValue}-${b.bValue}-${c.cValue}-${d.dValue}`
     )
     const expected = `${s.a.aValue}-${s.b.bValue}-${s.c.cValue}-${s.d.dValue}`
@@ -74,7 +74,7 @@ describe('Projection.combine', () => {
     expect(combined).toBeInstanceOf(Projection)
   })
 
-  test('can merge different kinds of gettables', () => {
+  test('can combine different kinds of gettables', () => {
     type A = {value: string}
     type B = {type: number}
     type C = {foo: boolean}
@@ -83,7 +83,7 @@ describe('Projection.combine', () => {
     const p1 = Projection.fromProp<S>()('a')
     const p2 = {get: (s: S) => s.b}
     const p3 = Lens.fromProp<S>()('c')
-    const combined = p1.combine([p2, p3] as const, (a, b, c) => ({
+    const combined = p1.combine([p2, p3], (a, b, c) => ({
       d: `${a.value}-${b.type}-${c.foo}`
     }))
     const expected = {d: `${s.a.value}-${s.b.type}-${s.c.foo}`}
@@ -101,7 +101,7 @@ describe('Projection.mapN', () => {
     const s: S = {a: {value: 'value'}, b: {type: 1}}
     const p1 = Projection.fromProp<S>()('a')
     const p2 = Projection.fromProp<S>()('b')
-    const combined = Projection.mapN([p1, p2] as const, (a, b) => ({c: `${a.value}-${b.type}`}))
+    const combined = Projection.mapN([p1, p2], (a, b) => ({c: `${a.value}-${b.type}`}))
     const expected = {c: `${s.a.value}-${s.b.type}`}
     const actual = combined.get(s)
     expect(actual).toEqual(expected)
@@ -120,7 +120,7 @@ describe('Projection.mapN', () => {
     const p3 = Projection.fromProp<S>()('c')
     const p4 = Projection.fromProp<S>()('d')
     const combined = Projection.mapN(
-      [p1, p2, p3, p4] as const,
+      [p1, p2, p3, p4],
       (a, b, c, d) => `${a.aValue}-${b.bValue}-${c.cValue}-${d.dValue}`
     )
     const expected = `${s.a.aValue}-${s.b.bValue}-${s.c.cValue}-${s.d.dValue}`
@@ -138,7 +138,7 @@ describe('Projection.mapN', () => {
     const p1 = Projection.fromProp<S>()('a')
     const p2 = {get: (s: S) => s.b}
     const p3 = Lens.fromProp<S>()('c')
-    const combined = Projection.mapN([p1, p2, p3] as const, (a, b, c) => ({
+    const combined = Projection.mapN([p1, p2, p3], (a, b, c) => ({
       d: `${a.value}-${b.type}-${c.foo}`
     }))
     const expected = {d: `${s.a.value}-${s.b.type}-${s.c.foo}`}

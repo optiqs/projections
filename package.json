@@ -15,9 +15,10 @@
     "lib/index.js"
   ],
   "scripts": {
-    "build": "rimraf lib/ && tsc && babel src --out-dir lib --extensions \".ts\" --ignore \"**/*.test.ts\"",
+    "build": "rimraf lib/ && tsc && babel src --out-dir lib --extensions \".ts\" && rimraf lib/**.test* && tsd",
     "test": "jest",
     "test-watch": "jest --watch",
+    "test-types": "tsd",
     "lint": "eslint src/**",
     "lint-fix": "eslint src/** --fix",
     "pre-commit": "lint-staged --quiet && npm run build",
@@ -48,6 +49,7 @@
     "npm-check-updates": "^10.2.2",
     "prettier": "^2.2.0",
     "rimraf": "^3.0.2",
+    "tsd": "^0.14.0",
     "typescript": "^4.1.2"
   },
   "husky": {
@@ -62,5 +64,8 @@
       "prettier --write",
       "git add"
     ]
+  },
+  "tsd": {
+    "directory": "src"
   }
 }

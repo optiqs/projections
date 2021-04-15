@@ -42,14 +42,6 @@ export type GettableTuple<S, Tuple extends TupleType> = {
 } & {
   readonly length: Tuple['length']
 }
-
-export type ProjectionMapFunction<
-  Projections extends TupleType,
-  Return
-> = Projections extends GettableTuple<infer _, infer Args>
-  ? (...args: Args) => Return
-  : (...args: unknown[]) => Return
-
 export class Projection<S, A> implements Gettable<S, A> {
   private readonly getter: Getter<S, A>
 
@@ -104,30 +96,29 @@ export class Projection<S, A> implements Gettable<S, A> {
   /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types */
 
   /**
-   * Merge one or more projection-like objects with the provided mapping function.
+   * Combine one or more projection-like objects with the provided mapping function.
    *
-   * To get type inferrence working properly, you may need to use `as const`
+   * To get type inference working properly, you may need to use `as const`
    * @example
    * declare const p1 : Projection<S,A>
    * declare const p2 : { get: (s: S) => B }
    * declare const p3 : Lens<S, A>
-   * const combined = p1.combine([p2, p3] as const, (a, b, c) => ({
+   * const combined = p1.combine([p2, p3], (a, b, c) => ({
    *   d: `${a.foo}-${b.bar}-${c.baz}`
    * }))
    */
   /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types */
-  public combine<Types extends TupleType, R>(
-    ss: GettableTuple<S, Types>,
-    f: (arg_0: A, ...args: Types) => R
+  public combine<B, T extends TupleType, R>(
+    ss: GettableTuple<S, [B, ...T]>,
+    f: FunctionN<[A, B, ...T], R>
   ): Projection<S, R>
-  public combine<B, R>(ss: Gettable<S, B>, f: (arg_0: A, arg_1: B) => R): Projection<S, R>
-  public combine<Types extends TupleType, R>(ss: any, f: any): Projection<S, R> {
-    const ps: GettableTuple<S, [A, ...Types]> = Array.isArray(ss)
-      ? [this, ...ss]
-      : ([this, ss] as any)
+  public combine<B, R>(ss: Gettable<S, B>, f: FunctionN<[A, B], R>): Projection<S, R>
+  public combine<T extends TupleType, R>(ss: any, f: any): Projection<S, R> {
+    const ps: GettableTuple<S, [A, ...T]> = Array.isArray(ss) ? [this, ...ss] : ([this, ss] as any)
 
     return Projection.mapN(ps, f)
   }
+
   /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types */
   public map<B>(f: (a: A) => B): Projection<S, B> {
     return Projection.map(this, f)
@@ -174,24 +165,23 @@ export class Projection<S, A> implements Gettable<S, A> {
   }
 
   /**
-   * Merge one or more projection-like objects with the provided mapping function.
+   * Combine one or more projection-like objects with the provided mapping function.
    *
-   * To get type inferrence working properly, you may need to use `as const`
    * @example
    * declare const p1 : Projection<S,A>
    * declare const p2 : { get: (s: S) => B }
    * declare const p3 : Lens<S, A>
-   * const combined = Projection.mapN([p1, p2, p3] as const, (a, b, c) => ({
+   * const combined = Projection.mapN([p1, p2, p3], (a, b, c) => ({
    *   d: `${a.foo}-${b.bar}-${c.baz}`
    * }))
    */
-  public static mapN<S, Types extends TupleType, R>(
-    projections: GettableTuple<S, Types>,
-    f: (...args: Types) => R
+  public static mapN<S, A, T extends TupleType, R>(
+    projections: GettableTuple<S, [A, ...T]>,
+    f: FunctionN<[A, ...T], R>
   ): Projection<S, R> {
     return Projection.of(
       flow(
-        s => projections.map(p => p.get(s)) as [...Types],
+        s => projections.map(p => p.get(s)) as [A, ...T],
         p => f(...p)
       )
     )
@@ -199,6 +189,7 @@ export class Projection<S, A> implements Gettable<S, A> {
 
   /**
    * Same as `mapN`, but in a format that can be piped.
+   * To get type inference working properly, you may need to use `as const` or Projection.createTuple
    * @example
    * const combined = pipe(
    *   [p1, p2, p3] as const,
@@ -206,9 +197,16 @@ export class Projection<S, A> implements Gettable<S, A> {
    *     d: `${a.value}-${b.type}-${c.foo}`
    *   }))
    * )
+   * // Or:
+   * const combined = pipe(
+   *   Projection.createTuple(p1, p2, p3),
+   *   Projection.pipeMap((a, b, c) => ({
+   *     d: `${a.value}-${b.type}-${c.foo}`
+   *   }))
+   * )
    */
-  public static mapF<Types extends TupleType, R>(f: (...args: Types) => R) {
-    return <S>(projections: GettableTuple<S, Types>): Projection<S, R> => {
+  public static mapF<A, T extends TupleType, R>(f: FunctionN<[A, ...T], R>) {
+    return <S>(projections: GettableTuple<S, [A, ...T]>): Projection<S, R> => {
       return Projection.mapN(projections, f)
     }
   }
@@ -238,6 +236,17 @@ export class Projection<S, A> implements Gettable<S, A> {
       defaultValue: A
     ): Projection<S, NonNullable<S[K]>> =>
       pipe(Lens.fromNullableProp<S>()(k, defaultValue), Projection.fromLens)
+  }
+
+  /**
+   * Essentially the identity function for an array of projections
+   *
+   * This can be used in lieu of `as const` if preferred, or to prevent type widening of the projections to improve type inference for mapping functions
+   *
+   * @see Projection.mapN
+   */
+  public static createTuple<T extends GettableTuple<unknown, TupleType>>(...projections: T): T {
+    return projections
   }
 }
 
