@@ -1,6 +1,6 @@
 import {Projection} from './projection'
 import {Lens, Getter} from 'monocle-ts'
-import {pipe} from 'fp-ts/lib/pipeable'
+import {pipe} from 'fp-ts/function'
 
 test('Projection.fromProp: drills down to an objects prop', () => {
   type S = {a: string}

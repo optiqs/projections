@@ -106,7 +106,7 @@ export class Projection<S, A> implements Gettable<S, A> {
   /**
    * Merge one or more projection-like objects with the provided mapping function.
    *
-   * To get type inferrence working properly, you may need to use `as const`
+   * To get type inference working properly, you may need to use `as const`
    * @example
    * declare const p1 : Projection<S,A>
    * declare const p2 : { get: (s: S) => B }
@@ -185,13 +185,13 @@ export class Projection<S, A> implements Gettable<S, A> {
    *   d: `${a.foo}-${b.bar}-${c.baz}`
    * }))
    */
-  public static mapN<S, Types extends TupleType, R>(
-    projections: GettableTuple<S, Types>,
-    f: (...args: Types) => R
+  public static mapN<S, A, Types extends TupleType, R>(
+    projections: GettableTuple<S, [A, ...Types]>,
+    f: (...args: [A, ...Types]) => R
   ): Projection<S, R> {
     return Projection.of(
       flow(
-        s => projections.map(p => p.get(s)) as [...Types],
+        s => projections.map(p => p.get(s)) as [A, ...Types],
         p => f(...p)
       )
     )
@@ -207,8 +207,8 @@ export class Projection<S, A> implements Gettable<S, A> {
    *   }))
    * )
    */
-  public static mapF<Types extends TupleType, R>(f: (...args: Types) => R) {
-    return <S>(projections: GettableTuple<S, Types>): Projection<S, R> => {
+  public static mapF<A, Types extends TupleType, R>(f: (...args: [A, ...Types]) => R) {
+    return <S>(projections: GettableTuple<S, [A, ...Types]>): Projection<S, R> => {
       return Projection.mapN(projections, f)
     }
   }
@@ -238,6 +238,17 @@ export class Projection<S, A> implements Gettable<S, A> {
       defaultValue: A
     ): Projection<S, NonNullable<S[K]>> =>
       pipe(Lens.fromNullableProp<S>()(k, defaultValue), Projection.fromLens)
+  }
+
+  /**
+   * Essentially the identity function for an array of projections
+   *
+   * This can be used in lieu of `as const` if preferred, or to prevent type widening of the projections to improve type inference for mapping functions
+   *
+   * @see Projection.mapN
+   */
+  public static merge<T extends GettableTuple<unknown, TupleType>>(...projections: T): T {
+    return projections
   }
 }
 
