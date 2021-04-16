@@ -1,7 +1,7 @@
 import {flow, FunctionN, identity, pipe} from 'fp-ts/lib/function'
 import {Lens, Getter} from 'monocle-ts'
 import lodashMemoize from 'lodash/memoize'
-import type {MapCacheConstructor, MemoizedFunction} from 'lodash'
+import type {MemoizedFunction} from 'lodash'
 
 const lodashIsReferenced = !!lodashMemoize
 
@@ -62,6 +62,7 @@ export type GettableTuple<S, Tuple extends TupleType> = {
 } & {
   readonly length: Tuple['length']
 }
+
 export class Projection<S, A> implements Gettable<S, A> {
   private readonly getter: Getter<S, A>
 
@@ -214,12 +215,18 @@ export class Projection<S, A> implements Gettable<S, A> {
     return Projection.of(gettable.get, memoizeResolver)
   }
 
-  public static fromLens<S, A>(lens: Lens<S, A>): Projection<S, A> {
-    return new Projection(lens.asGetter())
+  public static fromLens<S, A>(
+    lens: Lens<S, A>,
+    memoizeResolver?: CacheResolver<S>
+  ): Projection<S, A> {
+    return new Projection(lens.asGetter(), memoizeResolver)
   }
 
-  public static fromGetter<S, A>(getter: Getter<S, A>): Projection<S, A> {
-    return new Projection(getter)
+  public static fromGetter<S, A>(
+    getter: Getter<S, A>,
+    memoizeResolver?: CacheResolver<S>
+  ): Projection<S, A> {
+    return new Projection(getter, memoizeResolver)
   }
 
   public static map<S, A, B>(
@@ -258,7 +265,7 @@ export class Projection<S, A> implements Gettable<S, A> {
     return Projection.of(
       flow(
         s => projections.map(p => p.get(s)) as [A, ...T],
-        defaultMemoizeFunction(p => f(...p), resolvers.mapResolver)
+        defaultMemoizeFunction((p: [A, ...T]) => f(...p), resolvers.mapResolver)
       ),
       resolvers.memoizeResolver
     )
@@ -284,7 +291,7 @@ export class Projection<S, A> implements Gettable<S, A> {
    * // Or:
    * const combined = pipe(
    *   Projection.createTuple(p1, p2, p3),
-   *   Projection.pipeMap((a, b, c) => ({
+   *   Projection.mapF((a, b, c) => ({
    *     d: `${a.value}-${b.type}-${c.foo}`
    *   }))
    * )
