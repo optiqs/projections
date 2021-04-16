@@ -12,7 +12,6 @@ type MaybeMemoizeFunction = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   <T extends (...args: any) => any>(func: T, resolver?: (...args: Parameters<T>) => any): T &
     Partial<MemoizedFunction>
-  Cache?: MapCacheConstructor
 }
 
 export interface ProjectionFromPath<S> {
@@ -70,21 +69,32 @@ export class Projection<S, A> implements Gettable<S, A> {
 
   private readonly memoize: MaybeMemoizeFunction
 
-  constructor(getter: GetterFunction<S, A>)
-  constructor(getter: Getter<S, A>)
-  constructor(getter: GetterFunction<S, A> | Getter<S, A>) {
+  constructor(getter: GetterFunction<S, A>, resolver?: CacheResolver<S>)
+  constructor(getter: Getter<S, A>, resolver?: CacheResolver<S>)
+  constructor(getter: GetterFunction<S, A> | Getter<S, A>, resolver?: CacheResolver<S>) {
     this.memoize = defaultMemoizeFunction
-    this.getter = getter instanceof Getter ? getter : new Getter(getter)
-    this.composeGetter = this.memoize(this.getter.compose.bind(this.getter))
 
+    this.getter = getter instanceof Getter ? getter : new Getter(getter)
+
+    this.composeGetter = this.getter.compose.bind(this.getter)
     this.compose = this.compose.bind(this)
     this.composeLens = this.composeLens.bind(this)
-    this.combineLens = this.memoize(this.combineLens.bind(this))
-    this.combine = this.memoize(this.combine.bind(this))
-    this.map = this.memoize(this.map.bind(this))
-    this.get = this.memoize(this.get.bind(this))
+    this.combineLens = this.combineLens.bind(this)
+    this.combine = this.combine.bind(this)
+    this.map = this.map.bind(this)
     this.asGetter = this.asGetter.bind(this)
+
+    const memoizedGet = this.memoize(this.get, resolver)
+    this.get = memoizedGet
+
+    this.clearMemoCache = () => {
+      if (memoizedGet.cache) {
+        memoizedGet.cache?.clear?.()
+      }
+    }
   }
+
+  public readonly clearMemoCache: () => void
 
   public asGetter(): Getter<S, A> {
     return this.getter
@@ -186,7 +196,7 @@ export class Projection<S, A> implements Gettable<S, A> {
     getter: GetterFunction<S, A>,
     memoizeResolver?: CacheResolver<S>
   ): Projection<S, A> {
-    return new Projection(defaultMemoizeFunction(getter, memoizeResolver))
+    return new Projection(getter, memoizeResolver)
   }
 
   /**
