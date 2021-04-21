@@ -1,6 +1,6 @@
-import {flow, FunctionN, pipe} from 'fp-ts/lib/function'
+import {flow, FunctionN, identity, pipe} from 'fp-ts/lib/function'
 import {Lens, Getter} from 'monocle-ts'
-
+import {MemoizeFn, memoizeOnce} from './memoize-once'
 export interface ProjectionFromPath<S> {
   <
     K1 extends keyof S,
@@ -36,69 +36,75 @@ export interface Gettable<S, A> {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type TupleType = readonly any[]
-
 export type GettableTuple<S, Tuple extends TupleType> = {
   readonly [Index in keyof Tuple]: Gettable<S, Tuple[Index]>
 } & {
   readonly length: Tuple['length']
 }
+
+let customMemoizationFunction: MemoizeFn | null = null
+let defaultMemoizeFunction: MemoizeFn = memoizeOnce
+
 export class Projection<S, A> implements Gettable<S, A> {
-  private readonly getter: Getter<S, A>
+  private readonly memoizedGet: GetterFunction<S, A>
 
-  private readonly composeGetter: <B>(ab: Getter<A, B>) => Getter<S, B>
-
-  constructor(getter: GetterFunction<S, A>)
-  constructor(getter: Getter<S, A>)
-  constructor(getter: GetterFunction<S, A> | Getter<S, A>) {
-    this.getter = getter instanceof Getter ? getter : new Getter(getter)
-    this.composeGetter = this.getter.compose.bind(this.getter)
-
+  constructor(getter: GetterFunction<S, A>) {
+    this.memoizedGet = defaultMemoizeFunction(getter)
+    this.get = this.get.bind(this)
     this.compose = this.compose.bind(this)
     this.composeLens = this.composeLens.bind(this)
     this.combineLens = this.combineLens.bind(this)
     this.combine = this.combine.bind(this)
     this.map = this.map.bind(this)
-    this.get = this.get.bind(this)
     this.asGetter = this.asGetter.bind(this)
+    this.composeGetter = this.composeGetter.bind(this)
+  }
+
+  public get(s: S): A {
+    return this.memoizedGet(s)
   }
 
   public asGetter(): Getter<S, A> {
-    return this.getter
+    return new Getter(this.get)
+  }
+
+  private composeGetter<B>(ab: Getter<A, B>): Getter<S, B> {
+    return this.asGetter().compose(ab)
   }
 
   public compose<B>(sb: Gettable<A, B>): Projection<S, B> {
-    const getter = Projection.from(sb).getter
+    const getter = Projection.from(sb).asGetter()
     return pipe(getter, this.composeGetter, Projection.fromGetter)
   }
 
   public composeLens<B>(sb: Lens<A, B>): Projection<S, B> {
-    return pipe(sb, Projection.fromLens, this.compose)
+    return this.compose(sb)
   }
-
-  /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types */
   public combineLens<B, R>(sb: Lens<S, B>, f: FunctionN<[A, B], R>): Projection<S, R>
+
   public combineLens<B, C, R>(
     ss: [Lens<S, B>, Lens<S, C>],
     f: FunctionN<[A, B, C], R>
   ): Projection<S, R>
+
   public combineLens<B, C, D, R>(
     ss: [Lens<S, B>, Lens<S, C>, Lens<S, D>],
     f: FunctionN<[A, B, C, D], R>
   ): Projection<S, R>
+
   public combineLens<B, C, D, E, R>(
     ss: [Lens<S, B>, Lens<S, C>, Lens<S, D>, Lens<S, E>],
     f: FunctionN<[A, B, C, D, E], R>
   ): Projection<S, R>
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types
   public combineLens<R>(sb: any, f: any): Projection<S, R> {
-    const args = Array.isArray(sb) ? sb.map(Projection.fromLens) : (Projection.fromLens(sb) as any)
-    return this.combine(args, f)
+    return this.combine(sb, f)
   }
-  /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types */
 
   /**
    * Combine one or more projection-like objects with the provided mapping function.
    *
-   * To get type inference working properly, you may need to use `as const`
    * @example
    * declare const p1 : Projection<S,A>
    * declare const p2 : { get: (s: S) => B }
@@ -107,29 +113,41 @@ export class Projection<S, A> implements Gettable<S, A> {
    *   d: `${a.foo}-${b.bar}-${c.baz}`
    * }))
    */
-  /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types */
   public combine<B, T extends TupleType, R>(
     ss: GettableTuple<S, [B, ...T]>,
     f: FunctionN<[A, B, ...T], R>
   ): Projection<S, R>
   public combine<B, R>(ss: Gettable<S, B>, f: FunctionN<[A, B], R>): Projection<S, R>
+  /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types */
   public combine<T extends TupleType, R>(ss: any, f: any): Projection<S, R> {
     const ps: GettableTuple<S, [A, ...T]> = Array.isArray(ss) ? [this, ...ss] : ([this, ss] as any)
-
     return Projection.mapN(ps, f)
   }
-
   /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types */
+
   public map<B>(f: (a: A) => B): Projection<S, B> {
     return Projection.map(this, f)
   }
 
-  public get(s: S): A {
-    return this.getter.get(s)
+  public static isMemoized(): boolean {
+    return defaultMemoizeFunction !== identity
+  }
+
+  public static enableMemoization(): void {
+    defaultMemoizeFunction = customMemoizationFunction ?? memoizeOnce
+  }
+
+  public static disableMemoization(): void {
+    defaultMemoizeFunction = identity
+  }
+
+  public static customMemoization(memoize: MemoizeFn): void {
+    customMemoizationFunction = memoize
+    defaultMemoizeFunction = memoize
   }
 
   public static of<S, A>(getter: GetterFunction<S, A>): Projection<S, A> {
-    return new Projection(getter)
+    return new Projection(defaultMemoizeFunction(getter))
   }
 
   /**
@@ -140,16 +158,15 @@ export class Projection<S, A> implements Gettable<S, A> {
     if (gettable instanceof Projection) {
       return gettable
     }
-
     return Projection.of(gettable.get)
   }
 
   public static fromLens<S, A>(lens: Lens<S, A>): Projection<S, A> {
-    return new Projection(lens.asGetter())
+    return Projection.from(lens)
   }
 
   public static fromGetter<S, A>(getter: Getter<S, A>): Projection<S, A> {
-    return new Projection(getter)
+    return Projection.from(getter)
   }
 
   public static map<S, A, B>(sa: Gettable<S, A>, f: (a: A) => B): Projection<S, B> {
@@ -182,31 +199,34 @@ export class Projection<S, A> implements Gettable<S, A> {
     return Projection.of(
       flow(
         s => projections.map(p => p.get(s)) as [A, ...T],
-        p => f(...p)
+
+        (p: [A, ...T]) => f(...p)
       )
     )
   }
 
   /**
    * Same as `mapN`, but in a format that can be piped.
+   *
    * To get type inference working properly, you may need to use `as const` or Projection.createTuple
    * @example
    * const combined = pipe(
    *   [p1, p2, p3] as const,
-   *   Projection.pipeMap((a, b, c) => ({
-   *     d: `${a.value}-${b.type}-${c.foo}`
+   *   Projection.mapF((a, b, c) => ({
+   *     d: `${a.foo}-${b.bar}-${c.baz}`
    *   }))
-   * )
+   *
+   *
    * // Or:
    * const combined = pipe(
    *   Projection.createTuple(p1, p2, p3),
-   *   Projection.pipeMap((a, b, c) => ({
+   *   Projection.mapF((a, b, c) => ({
    *     d: `${a.value}-${b.type}-${c.foo}`
    *   }))
    * )
    */
-  public static mapF<A, T extends TupleType, R>(f: FunctionN<[A, ...T], R>) {
-    return <S>(projections: GettableTuple<S, [A, ...T]>): Projection<S, R> => {
+  public static mapF<A, T extends TupleType, R, S>(f: FunctionN<[A, ...T], R>) {
+    return (projections: GettableTuple<S, [A, ...T]>): Projection<S, R> => {
       return Projection.mapN(projections, f)
     }
   }
@@ -217,12 +237,12 @@ export class Projection<S, A> implements Gettable<S, A> {
 
   public static fromProp<S>() {
     return <P extends keyof S>(prop: P): Projection<S, S[P]> =>
-      pipe(prop, Lens.fromProp<S>(), Projection.from)
+      pipe(prop, Lens.fromProp<S>(), Projection.fromLens)
   }
 
   public static fromProps<S>() {
     return <P extends keyof S>(props: P[]): Projection<S, {[K in P]: S[K]}> =>
-      pipe(props, Lens.fromProps<S>(), Projection.from)
+      pipe(props, Lens.fromProps<S>(), Projection.fromLens)
   }
 
   public static fromPath<S>(): ProjectionFromPath<S> {
@@ -264,5 +284,5 @@ Lens.prototype.asProjection = function () {
 }
 
 Getter.prototype.asProjection = function () {
-  return new Projection(this)
+  return new Projection(this.get)
 }
