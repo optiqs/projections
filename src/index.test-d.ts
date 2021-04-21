@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import {expectType} from 'tsd'
 import {Lens, lens} from 'monocle-ts'
 import {pipe} from 'fp-ts/function'
