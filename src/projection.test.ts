@@ -165,22 +165,6 @@ describe('Projection.mapF', () => {
     expect(combined).toBeInstanceOf(Projection)
   })
 
-  test('maps two projections with a custom memo resolver', () => {
-    type A = {value: string}
-    type B = {type: number}
-    type S = {a: A; b: B}
-    const s: S = {a: {value: 'value'}, b: {type: 1}}
-    const p1 = Projection.fromProp<S>()('a')
-    const p2 = Projection.fromProp<S>()('b')
-    const combined = pipe(
-      [p1, p2] as const,
-      Projection.mapF((a, b) => ({c: `${a.value}-${b.type}`}), {mapResolver: s => s.value})
-    )
-    const expected = {c: `${s.a.value}-${s.b.type}`}
-    const actual = combined.get(s)
-    expect(actual).toEqual(expected)
-    expect(combined).toBeInstanceOf(Projection)
-  })
   test('maps more than two projections', () => {
     type A = {aValue: string}
     type B = {bValue: number}

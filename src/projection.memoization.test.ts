@@ -8,8 +8,8 @@ type S = {a: A; b: B; c: C; d: D}
 const s: S = {a: {aValue: 'a value'}, b: {bValue: 7}, c: {cValue: 'c'}, d: {dValue: new Date()}}
 
 describe('with memoization on', () => {
-  beforeEach(() => Projection.memoizeByDefault())
-  afterEach(() => Projection.memoizeByDefault(false))
+  beforeEach(() => Projection.enableMemoization())
+  afterEach(() => Projection.disableMemoization())
 
   test("only calls the mapping function once when the input doesn't change", () => {
     expect(Projection.isMemoized()).toBe(true)
@@ -27,8 +27,10 @@ describe('with memoization on', () => {
     const actual = combined.get(s)
 
     expect(actual).toEqual(expected)
-    expect(combined.get(s) === actual).toBe(true)
-    expect(combined.get(s) === actual).toBe(true)
+    expect(combined.get(s)).toBe(actual)
+    expect(combined.get(s)).toBe(actual)
+    expect(combined.get(s)).toBe(actual)
+    expect(combined.get(s)).toBe(actual)
     expect(mapper).toBeCalledTimes(1)
   })
 
@@ -57,6 +59,7 @@ describe('with memoization on', () => {
 })
 
 describe('with memoization off', () => {
+  beforeEach(() => Projection.disableMemoization())
   test('calls the mapping function every time', () => {
     expect(Projection.isMemoized()).toBe(false)
     const p1 = Projection.fromProp<S>()('a')
@@ -72,8 +75,10 @@ describe('with memoization off', () => {
     const actual = combined.get(s)
 
     expect(actual).toEqual(expected)
-    expect(combined.get(s) === actual).toBe(false)
-    expect(combined.get(s) === actual).toBe(false)
-    expect(mapper).toBeCalledTimes(3)
+    expect(combined.get(s)).toEqual(actual)
+    expect(combined.get(s)).not.toBe(actual)
+    expect(combined.get(s)).toEqual(actual)
+    expect(combined.get(s)).not.toBe(actual)
+    expect(mapper).toBeCalledTimes(5)
   })
 })

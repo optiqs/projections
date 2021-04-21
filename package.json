@@ -31,9 +31,6 @@
     "fp-ts": "^2.8.6",
     "monocle-ts": "^2.3.3"
   },
-  "optionalDependencies": {
-    "lodash": "^4.0.0"
-  },
   "devDependencies": {
     "@babel/cli": "^7.12.7",
     "@babel/core": "^7.12.7",
