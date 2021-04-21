@@ -5,9 +5,6 @@ import type {MemoizedFunction} from 'lodash'
 
 const lodashIsReferenced = !!lodashMemoize
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type CacheResolver<S = any> = (s: S) => any
-
 type MaybeMemoizeFunction = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   <T extends (...args: any) => any>(func: T, resolver?: (...args: Parameters<T>) => any): T &
@@ -47,12 +44,37 @@ export interface Gettable<S, A> {
   get(s: S): A
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+/* eslint-disable @typescript-eslint/no-explicit-any */
 type TupleType = readonly any[]
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-interface MapResolvers<S, Args extends any[] = any[]> {
-  memoizeResolver?: CacheResolver<S>
-  mapResolver?: (...args: Args) => unknown
+
+interface MemoizeResolver<S = any> {
+  (s: S): any
+}
+
+const hasOwnProperty = <T, Property extends string>(
+  item: T,
+  property: Property
+): item is T & Record<Property, unknown> => {
+  return Object.prototype.hasOwnProperty.call(item, property)
+}
+
+const isMemoizedFunction = <T extends (...args: any[]) => any>(f: T): f is T & MemoizedFunction => {
+  if (hasOwnProperty(f, 'cache')) {
+    return !!f.cache
+  }
+  return false
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+interface MapResolvers<S, Args extends TupleType> {
+  /**
+   * Function used to resolve the cache key when memoizing `Projection.get`
+   */
+  getResolver?(s: S): unknown
+  /**
+   * Function used to resolve the cache key when memoizing Projection mapping functions. By default, the first argument is used as the key.
+   */
+  mapResolver?(...args: Args): unknown
 }
 
 let defaultMemoizeFunction: MaybeMemoizeFunction = identity
@@ -64,45 +86,47 @@ export type GettableTuple<S, Tuple extends TupleType> = {
 }
 
 export class Projection<S, A> implements Gettable<S, A> {
-  private readonly getter: Getter<S, A>
+  private readonly memoizedGet: GetterFunction<S, A> & Partial<MemoizedFunction>
 
-  private readonly composeGetter: <B>(ab: Getter<A, B>) => Getter<S, B>
+  constructor(getter: GetterFunction<S, A> & MemoizedFunction)
+  constructor(getter: GetterFunction<S, A>, resolver?: MemoizeResolver<S>)
+  constructor(getter: GetterFunction<S, A>, resolver: MemoizeResolver<S> = a => a) {
+    if (isMemoizedFunction(getter)) {
+      this.memoizedGet = getter
+    } else {
+      this.memoizedGet = defaultMemoizeFunction(getter, resolver)
+    }
 
-  private readonly memoize: MaybeMemoizeFunction
-
-  constructor(getter: GetterFunction<S, A>, resolver?: CacheResolver<S>)
-  constructor(getter: Getter<S, A>, resolver?: CacheResolver<S>)
-  constructor(getter: GetterFunction<S, A> | Getter<S, A>, resolver?: CacheResolver<S>) {
-    this.memoize = defaultMemoizeFunction
-
-    this.getter = getter instanceof Getter ? getter : new Getter(getter)
-
-    this.composeGetter = this.getter.compose.bind(this.getter)
+    this.get = this.get.bind(this)
     this.compose = this.compose.bind(this)
     this.composeLens = this.composeLens.bind(this)
     this.combineLens = this.combineLens.bind(this)
     this.combine = this.combine.bind(this)
     this.map = this.map.bind(this)
     this.asGetter = this.asGetter.bind(this)
+    this.composeGetter = this.composeGetter.bind(this)
+    this.clearMemoCache = this.clearMemoCache.bind(this)
+  }
+  private composeGetter<B>(ab: Getter<A, B>): Getter<S, B> {
+    return this.asGetter().compose(ab)
+  }
 
-    const memoizedGet = this.memoize(this.get, resolver)
-    this.get = memoizedGet
-
-    this.clearMemoCache = () => {
-      if (memoizedGet.cache) {
-        memoizedGet.cache?.clear?.()
-      }
+  public clearMemoCache(): void {
+    if (this.memoizedGet.cache) {
+      this.memoizedGet.cache.clear?.()
     }
   }
 
-  public readonly clearMemoCache: () => void
-
-  public asGetter(): Getter<S, A> {
-    return this.getter
+  public get(s: S): A {
+    return this.memoizedGet(s)
   }
 
-  public compose<B>(sb: Gettable<A, B>): Projection<S, B> {
-    const getter = Projection.from(sb).getter
+  public asGetter(): Getter<S, A> {
+    return new Getter(this.get)
+  }
+
+  public compose<B>(sb: Gettable<A, B>, resolver: MemoizeResolver<A> = a => a): Projection<S, B> {
+    const getter = Projection.from(sb, resolver).asGetter()
     return pipe(getter, this.composeGetter, Projection.fromGetter)
   }
 
@@ -131,12 +155,10 @@ export class Projection<S, A> implements Gettable<S, A> {
   public combineLens<R>(sb: any, f: any): Projection<S, R> {
     return this.combine(sb, f)
   }
-  /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types */
 
   /**
    * Combine one or more projection-like objects with the provided mapping function.
    *
-   * To get type inference working properly, you may need to use `as const`
    * @example
    * declare const p1 : Projection<S,A>
    * declare const p2 : { get: (s: S) => B }
@@ -145,25 +167,21 @@ export class Projection<S, A> implements Gettable<S, A> {
    *   d: `${a.foo}-${b.bar}-${c.baz}`
    * }))
    */
-  /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types */
   public combine<B, T extends TupleType, R>(
     ss: GettableTuple<S, [B, ...T]>,
     f: FunctionN<[A, B, ...T], R>
   ): Projection<S, R>
   public combine<B, R>(ss: Gettable<S, B>, f: FunctionN<[A, B], R>): Projection<S, R>
+  /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types */
   public combine<T extends TupleType, R>(ss: any, f: any): Projection<S, R> {
     const ps: GettableTuple<S, [A, ...T]> = Array.isArray(ss) ? [this, ...ss] : ([this, ss] as any)
 
     return Projection.mapN(ps, f)
   }
-
   /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types */
+
   public map<B>(f: (a: A) => B): Projection<S, B> {
     return Projection.map(this, f)
-  }
-
-  public get(s: S): A {
-    return this.getter.get(s)
   }
 
   public static isMemoized(): boolean {
@@ -195,7 +213,7 @@ export class Projection<S, A> implements Gettable<S, A> {
 
   public static of<S, A>(
     getter: GetterFunction<S, A>,
-    memoizeResolver?: CacheResolver<S>
+    memoizeResolver?: MemoizeResolver<S>
   ): Projection<S, A> {
     return new Projection(getter, memoizeResolver)
   }
@@ -204,9 +222,14 @@ export class Projection<S, A> implements Gettable<S, A> {
    * Creates a projection from anything that has an appropriate `get` method.
    * If the provided argument is already a projection, that same instance is returned.
    */
+  public static from<S, A>(gettable: Projection<S, A>): Projection<S, A>
   public static from<S, A>(
     gettable: Gettable<S, A>,
-    memoizeResolver?: CacheResolver<S>
+    memoizeResolver?: MemoizeResolver<S>
+  ): Projection<S, A>
+  public static from<S, A>(
+    gettable: Gettable<S, A>,
+    memoizeResolver?: MemoizeResolver<S>
   ): Projection<S, A> {
     if (gettable instanceof Projection) {
       return gettable
@@ -217,16 +240,16 @@ export class Projection<S, A> implements Gettable<S, A> {
 
   public static fromLens<S, A>(
     lens: Lens<S, A>,
-    memoizeResolver?: CacheResolver<S>
+    memoizeResolver?: MemoizeResolver<S>
   ): Projection<S, A> {
-    return new Projection(lens.asGetter(), memoizeResolver)
+    return new Projection(lens.get, memoizeResolver)
   }
 
   public static fromGetter<S, A>(
     getter: Getter<S, A>,
-    memoizeResolver?: CacheResolver<S>
+    memoizeResolver?: MemoizeResolver<S>
   ): Projection<S, A> {
-    return new Projection(getter, memoizeResolver)
+    return new Projection(getter.get, memoizeResolver)
   }
 
   public static map<S, A, B>(
@@ -260,19 +283,23 @@ export class Projection<S, A> implements Gettable<S, A> {
   public static mapN<S, A, T extends TupleType, R>(
     projections: GettableTuple<S, [A, ...T]>,
     f: FunctionN<[A, ...T], R>,
-    resolvers: MapResolvers<S> = {}
+    resolvers: MapResolvers<S, [A, ...T]> = {}
   ): Projection<S, R> {
     return Projection.of(
       flow(
         s => projections.map(p => p.get(s)) as [A, ...T],
-        defaultMemoizeFunction((p: [A, ...T]) => f(...p), resolvers.mapResolver)
+        defaultMemoizeFunction(
+          (p: [A, ...T]) => f(...p),
+          resolvers.mapResolver ? p => resolvers.mapResolver?.(...p) : undefined
+        )
       ),
-      resolvers.memoizeResolver
+      resolvers.getResolver
     )
   }
 
   /**
    * Same as `mapN`, but in a format that can be piped.
+   *
    * To get type inference working properly, you may need to use `as const` or Projection.createTuple
    * @example
    * const combined = pipe(
@@ -281,13 +308,7 @@ export class Projection<S, A> implements Gettable<S, A> {
    *     d: `${a.foo}-${b.bar}-${c.baz}`
    *   }))
    *
-   * // Or
-   * const combined = pipe(
-   *   Projection.merge(p1, p2, p3),
-   *   Projection.mapF((a, b, c) => ({
-   *     d: `${a.foo}-${b.bar}-${c.baz}`
-   *   }))
-   * )
+   *
    * // Or:
    * const combined = pipe(
    *   Projection.createTuple(p1, p2, p3),
@@ -296,9 +317,12 @@ export class Projection<S, A> implements Gettable<S, A> {
    *   }))
    * )
    */
-  public static mapF<A, T extends TupleType, R>(f: FunctionN<[A, ...T], R>) {
-    return <S>(projections: GettableTuple<S, [A, ...T]>): Projection<S, R> => {
-      return Projection.mapN(projections, f)
+  public static mapF<A, T extends TupleType, R, S>(
+    f: FunctionN<[A, ...T], R>,
+    resolvers: MapResolvers<S, [A, ...T]> = {}
+  ) {
+    return (projections: GettableTuple<S, [A, ...T]>): Projection<S, R> => {
+      return Projection.mapN(projections, f, resolvers)
     }
   }
 
@@ -355,5 +379,5 @@ Lens.prototype.asProjection = function () {
 }
 
 Getter.prototype.asProjection = function () {
-  return new Projection(this)
+  return new Projection(this.get)
 }

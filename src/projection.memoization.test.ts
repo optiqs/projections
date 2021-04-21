@@ -18,41 +18,41 @@ describe('with memoization on', () => {
     const p2 = Projection.fromProp<S>()('b')
     const p3 = Projection.fromProp<S>()('c')
     const p4 = Projection.fromProp<S>()('d')
-    let timesCalled = 0
 
-    const combined = p1.combine([p2, p3, p4], (a, b, c, d) => {
-      ++timesCalled
+    const mapper = jest.fn((a: A, b: B, c: C, d: D) => {
       return {e: {a, b, c, d}}
     })
+    const combined = p1.combine([p2, p3, p4], mapper)
     const expected = {e: {a: s.a, b: s.b, c: s.c, d: s.d}}
     const actual = combined.get(s)
 
     expect(actual).toEqual(expected)
     expect(combined.get(s) === actual).toBe(true)
     expect(combined.get(s) === actual).toBe(true)
-    expect(timesCalled).toBe(1)
+    expect(mapper).toBeCalledTimes(1)
   })
 
-  test('calls the mapping function again when the changes', () => {
+  test('calls the mapping function again when the input reference changes', () => {
     expect(Projection.isMemoized()).toBe(true)
 
     const p1 = Projection.fromProp<S>()('a')
     const p2 = Projection.fromProp<S>()('b')
     const p3 = Projection.fromProp<S>()('c')
     const p4 = Projection.fromProp<S>()('d')
-    let timesCalled = 0
-
-    const combined = p1.combine([p2, p3, p4], (a, b, c, d) => {
-      ++timesCalled
-      return {e: {a, b, c, d}}
+    const mapper = jest.fn((a: A, b: B, c: C, d: D) => {
+      return [a.aValue, b.bValue, c.cValue, d.dValue]
     })
-    const expected = {e: {a: s.a, b: s.b, c: s.c, d: s.d}}
+    const combined = p1.combine([p2, p3, p4], mapper)
+    const expected = [s.a.aValue, s.b.bValue, s.c.cValue, s.d.dValue]
     const actual = combined.get(s)
 
     expect(actual).toEqual(expected)
-    expect(combined.get(s) === actual).toBe(true)
-    expect(combined.get({...s}) === actual).toBe(false)
-    expect(timesCalled).toBe(2)
+    const newState: S = {...s}
+    const changed = combined.get(newState)
+    expect(newState === s).toBe(false)
+    expect(changed).toEqual(actual)
+    expect(mapper).toBeCalledTimes(2)
+    expect(changed === actual).toBe(false)
   })
 })
 
@@ -63,18 +63,17 @@ describe('with memoization off', () => {
     const p2 = Projection.fromProp<S>()('b')
     const p3 = Projection.fromProp<S>()('c')
     const p4 = Projection.fromProp<S>()('d')
-    let timesCalled = 0
 
-    const combined = p1.combine([p2, p3, p4], (a, b, c, d) => {
-      ++timesCalled
+    const mapper = jest.fn((a: A, b: B, c: C, d: D) => {
       return {e: {a, b, c, d}}
     })
+    const combined = p1.combine([p2, p3, p4], mapper)
     const expected = {e: {a: s.a, b: s.b, c: s.c, d: s.d}}
     const actual = combined.get(s)
 
     expect(actual).toEqual(expected)
     expect(combined.get(s) === actual).toBe(false)
     expect(combined.get(s) === actual).toBe(false)
-    expect(timesCalled).toBe(3)
+    expect(mapper).toBeCalledTimes(3)
   })
 })

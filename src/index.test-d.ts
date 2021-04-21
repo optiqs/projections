@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {expectType} from 'tsd'
 import {Lens, lens} from 'monocle-ts'
 import {pipe} from 'fp-ts/function'
@@ -106,3 +107,19 @@ expectType<[Projection<S, A>, Projection<S, B>, Projection<S, C>]>(
 const lA = Lens.fromProp<S>()('a')
 const lC = pipe(lens.id<S>(), lens.prop('c'))
 expectType<[Lens<S, A>, Projection<S, B>, lens.Lens<S, C>]>(Projection.createTuple(lA, pB, lC))
+
+// Projection.mapF correctly infers the parameter types for Cache resolvers
+pipe(
+  [pA, pB] as const,
+  Projection.mapF((a, b) => `${a}-${b}`, {
+    getResolver: s => {
+      expectType<S>(s)
+      return s
+    },
+    mapResolver: (a, b) => {
+      expectType<A>(a)
+      expectType<B>(b)
+      return a
+    }
+  })
+)
